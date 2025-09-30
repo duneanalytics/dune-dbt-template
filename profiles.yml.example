@@ -1,0 +1,27 @@
+# Example profiles.yml for dbt-trino
+# Copy this file to ~/.dbt/profiles.yml and configure with your connection details
+
+dbt_example:
+  target: dev
+  outputs:
+    dev:
+      type: trino
+      method: ldap  # Options: ldap, kerberos, jwt, certificate, oauth, oauth_console, none
+      host: your-trino-host.example.com  # e.g., mycluster.mydomain.com
+      port: 443
+      database: your_catalog  # The catalog name in Trino
+      schema: your_schema  # The schema within the catalog
+      user: your_username  # Format: user.name or user.name@domain.com
+      password: your_password  # Required for ldap method
+      threads: 4  # Number of parallel threads for dbt
+      
+      # Optional: Session properties
+      # session_properties:
+      #   query_max_run_time: 4h
+      
+      # Optional: Set catalog roles (for Starburst Enterprise)
+      # roles:
+      #   catalog_name: role_name
+
+# For other authentication methods, see:
+# https://docs.getdbt.com/docs/core/connect-data-platform/trino-setup

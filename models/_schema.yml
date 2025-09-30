@@ -1,0 +1,10 @@
+version: 2
+
+models:
+  - name: example_view_model
+    description: "A starter dbt view model"
+    columns:
+      - name: block_number
+        description: "The unique block number in last 1 day"
+      - name: total_tx_per_block
+        description: "The total number of transactions per block"
