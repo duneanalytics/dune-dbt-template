@@ -1,7 +1,7 @@
 version: 2
 
 models:
-  - name: example_view_model
+  - name: dbt_template_view_model
     description: "A starter dbt view model"
     columns:
       - name: block_number
