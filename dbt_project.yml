@@ -38,4 +38,6 @@ clean-targets:         # directories to be removed by `dbt clean`
 models:
   dbt_template:
     # Config indicated by + and applies to all files under models/example/
-    +materialized: view
+    +materialized: view       # fallback default, materialized should be overriden in model specific configs
+    +schema: no_schema        # fallback default, schema should be overriden in model specific configs
+    +view_security: invoker   # required security setting for views
