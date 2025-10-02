@@ -7,8 +7,8 @@
 #}
 
 {{ config(
-    schema = 'dbt_template'
-    , alias = 'table_model'
+    schema = 'test_schema'
+    , alias = 'dbt_template_table_model'
     , materialized = 'table'
     , on_table_exists = 'replace'
 )
@@ -16,6 +16,7 @@
 
 select
     block_number
+    , block_date
     , count(1) as total_tx_per_block
 from
     {{ source('ethereum', 'transactions') }}
@@ -23,3 +24,4 @@ where
     block_date >= now() - interval '1' day
 group by
     block_number
+    , block_date
