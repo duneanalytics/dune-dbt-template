@@ -25,7 +25,7 @@
 
     {%- elif target.schema.startswith("github_actions") -%}
         {# test environment, CI pipeline #}
-        {{ 'test_schema' }}_{{ custom_schema_name | trim }}
+        {{ 'test_schema' }}
 
     {%- elif custom_schema_name is none -%}
         
