@@ -1,0 +1,48 @@
+name: dbt_run CI pipeline
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  dbt-run:
+    runs-on: [ self-hosted, linux, spellbook-trino-ci ]
+    timeout-minutes: 90
+    
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies with uv
+        run: uv sync
+
+      - name: Run dbt deps
+        run: uv run dbt deps
+
+      - name: Activate Trino cluster
+        run: "./scripts/activate-trino-cluster.sh"
+
+      - name: Run dbt compile
+        run: uv run dbt compile
+
+      - name: Run dbt run (full refresh)
+        run: uv run dbt run --full-refresh
+
+      - name: Run dbt test (after full refresh)
+        run: uv run dbt test
+
+      - name: Run dbt run (incremental update)
+        run: uv run dbt run
+
+      - name: Run dbt test (after incremental)
+        run: uv run dbt test
