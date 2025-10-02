@@ -7,7 +7,8 @@ version: '1.0.0'
 
 # This setting configures which "profile" dbt uses for this project.
 # profile: 'dbt_template' # legacy connection profile, direct access
-profile: 'dbt_template_api' # new connection profile, dune connectivity / api
+# profile: 'dbt_template_api' # new connection profile, dune connectivity / api
+profile: 'spellbook-local' # uses shared runner profile
 
 # SSL certificate validation is disabled by default. It is legacy behavior which will be changed in future releases.
 # It is strongly advised to enable `require_certificate_validation` flag or explicitly set `cert` configuration to `True` for security reasons.
