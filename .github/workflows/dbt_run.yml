@@ -31,7 +31,7 @@ jobs:
           echo "PROFILE=--profiles-dir $HOME/.dbt --profile dunesql" >> $GITHUB_ENV
 
       - name: Run dbt deps
-        run: uv run dbt deps`
+        run: uv run dbt deps
 
       - name: Activate Trino cluster
         run: "./scripts/activate-trino-cluster.sh"
