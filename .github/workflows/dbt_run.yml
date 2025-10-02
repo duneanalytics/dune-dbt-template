@@ -26,23 +26,27 @@ jobs:
       - name: Install dependencies with uv
         run: uv sync
 
+      - name: Setup variables
+        run: |
+          echo "PROFILE=--profiles-dir $HOME/.dbt --profile dunesql" >> $GITHUB_ENV
+
       - name: Run dbt deps
-        run: uv run dbt deps
+        run: uv run dbt deps`
 
       - name: Activate Trino cluster
         run: "./scripts/activate-trino-cluster.sh"
 
       - name: Run dbt compile
-        run: uv run dbt compile
+        run: uv run dbt compile $PROFILE
 
       - name: Run dbt run (full refresh)
-        run: uv run dbt run --full-refresh
+        run: uv run dbt run $PROFILE --full-refresh
 
       - name: Run dbt test (after full refresh)
-        run: uv run dbt test
+        run: uv run dbt test $PROFILE
 
       - name: Run dbt run (incremental update)
-        run: uv run dbt run
+        run: uv run dbt run $PROFILE
 
       - name: Run dbt test (after incremental)
-        run: uv run dbt test
+        run: uv run dbt test $PROFILE
