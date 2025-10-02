@@ -1,5 +1,5 @@
 {#
-    goal: depending on how we handle dev vs. prod environments (i.e. s3 bucket names), we may not need this macro override
+    goal: depending on how we handle dev vs. prod environments (i.e. s3), we may not need this macro override
 
     Custom schema naming logic for dev vs prod environments
     
@@ -19,19 +19,22 @@
 {% macro generate_schema_name(custom_schema_name, node) -%}
 
     {%- set default_schema = target.schema -%}
-    {%- if custom_schema_name is none -%}
-
-        {{ default_schema }}
-
-    {%- elif target.name == 'prod' -%}
-
+    {%- if target.name == 'prod' and custom_schema_name is not none -%}
+        {# prod environment #}
         {{ custom_schema_name | trim }}
 
-    {%- else -%}
+    {%- elif target.schema.startswith("github_actions") -%}
+        {# test environment, CI pipeline #}
+        {{ 'test_schema' }}
 
+    {%- elif custom_schema_name is none -%}
+        
+        {{ default_schema }}
+
+    {%- else -%}
+        {# dev environment, running locally #}
         {{ default_schema }}_{{ custom_schema_name | trim }}
 
     {%- endif -%}
 
 {%- endmacro %}
-

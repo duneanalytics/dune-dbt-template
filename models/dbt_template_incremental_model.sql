@@ -5,8 +5,8 @@
 #}
 
 {{ config(
-    schema = 'dbt_template'
-    , alias = 'incremental_model'
+    schema = 'test_schema'
+    , alias = 'dbt_template_incremental_model'
     , materialized = 'incremental'
     , incremental_strategy = 'merge'
     , unique_key = ['block_number', 'block_date']
@@ -18,7 +18,7 @@
 select
     block_number
     , block_date
-    , count(1) as total_tx_per_block
+    , count(1) as total_tx_per_block -- count per block
 from
     {{ source('ethereum', 'transactions') }}
 where
