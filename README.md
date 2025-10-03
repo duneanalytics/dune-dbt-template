@@ -6,11 +6,34 @@ A dbt project template for Dune Analytics using dbt-core, dbt-trino, and uv for 
 
 - Python 3.12+
 - [uv](https://github.com/astral-sh/uv) (install with: `curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- [direnv](https://direnv.net/) (optional but recommended, install with: `brew install direnv` on macOS)
 - Access to Dune Trino cluster via API
 
 ## Quick Start
 
-### 1. Install Dependencies
+### 1. Set Up Environment (Choose One)
+
+**Option A: Using direnv (Recommended)**
+
+```bash
+# Clone the repository
+git clone <repo-url>
+cd dune-dbt-template
+
+# Copy and configure environment file
+cp .envrc.example .envrc
+# Edit .envrc with your credentials (API keys, passwords, etc.)
+
+# Allow direnv to load the environment
+direnv allow
+
+# That's it! The .envrc file will automatically:
+# - Create and activate the virtual environment with uv sync
+# - Set all required environment variables
+# - Activate whenever you cd into the directory
+```
+
+**Option B: Manual Setup**
 
 ```bash
 # Install dependencies into virtual environment

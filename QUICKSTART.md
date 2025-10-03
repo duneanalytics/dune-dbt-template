@@ -9,14 +9,47 @@ Get up and running with the Dune DBT Template in minutes.
 - [x] ✅ dbt project created with example models
 - [x] ✅ Custom Dune macros configured
 - [x] ✅ GitHub Actions workflow ready
-- [ ] ⏳ Install dependencies with `uv sync`
+- [ ] ⏳ Set up environment (direnv or manual)
 - [ ] ⏳ Install dbt packages with `dbt deps`
 - [ ] ⏳ Configure your Dune connection in `~/.dbt/profiles.yml`
 - [ ] ⏳ Test connection with `dbt debug`
 
 ## Next Steps
 
-### 1. Install Dependencies
+### 1. Set Up Your Environment (Choose One)
+
+**Option A: Using direnv (Recommended for Local Development)**
+
+```bash
+# Install direnv if you haven't already
+# macOS: brew install direnv
+# Linux: see https://direnv.net/docs/installation.html
+
+# Copy the example environment file
+cp .envrc.example .envrc
+
+# Edit .envrc with your actual credentials
+nano .envrc  # or use your preferred editor
+
+# Update these values:
+# - DBT_TEMPLATE_PASSWORD (your Trino password)
+# - DBT_TEMPLATE_USER (your username)
+# - DBT_TEMPLATE_SCHEMA (e.g., dbt_yourname)
+# - DBT_TEMPLATE_API_KEY (your Dune API key)
+# - DBT_TEMPLATE_API_SCHEMA (your team name)
+
+# Allow direnv to load the environment
+direnv allow
+
+# That's it! Your environment is ready.
+# direnv will automatically:
+# - Run uv sync to create/update the virtual environment
+# - Activate the virtual environment
+# - Set all environment variables
+# - Re-activate whenever you cd into this directory
+```
+
+**Option B: Manual Setup (Without direnv)**
 
 ```bash
 # Install Python dependencies
@@ -177,6 +210,20 @@ dbt docs serve
 
 ## Virtual Environment Tips
 
+**With direnv (automatic):**
+```bash
+# Just cd into the directory
+cd /path/to/dune-dbt-template
+# Environment activates automatically!
+
+# Run commands directly
+dbt run
+
+# Leave the directory to deactivate
+cd ..
+```
+
+**Without direnv (manual):**
 ```bash
 # Activate for the session (do this once per terminal session)
 source .venv/bin/activate
