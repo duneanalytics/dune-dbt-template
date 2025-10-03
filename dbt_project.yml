@@ -42,3 +42,4 @@ models:
     +materialized: view       # fallback default, materialized should be overriden in model specific configs
     +schema: no_schema        # fallback default, schema should be overriden in model specific configs
     +view_security: invoker   # required security setting for views
+    +on_table_exists: replace # dunesql hive metastore does *not* allow rename of table, meaning standard dbt table operations won't work (drop temp table, create temp table, rename existing table to backup, rename temp to final, drop backup)
