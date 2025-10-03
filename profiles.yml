@@ -13,6 +13,7 @@ dbt_template:
       schema: "{{ env_var('DBT_TEMPLATE_SCHEMA') }}"
       threads: 4
       http_scheme: https
+      cert: true
       http_headers:
         X-Trino-Routing-Group: "{{ env_var('DBT_TEMPLATE_ROUTING_GROUP') }}"
         X-Forwarded-Proto: https
@@ -36,6 +37,7 @@ dbt_template_api:
       schema: "{{ env_var('DBT_TEMPLATE_API_SCHEMA') }}"
       threads: 4
       http_scheme: https
+      cert: true
       session_properties:
         transformations: true
       timezone: UTC
