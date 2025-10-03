@@ -23,9 +23,10 @@ models:
     description: "A starter dbt incremental model"
     data_tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - block_number
-            - block_date
+          arguments:
+            combination_of_columns:
+              - block_number
+              - block_date
     columns:
       - name: block_number
         description: "The unique block number in last 1 day"

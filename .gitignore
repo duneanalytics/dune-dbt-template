@@ -30,6 +30,7 @@ profiles.yml
 # Environment
 .env
 .env.local
+.envrc
 
 # Compiled files
 *.pyc
