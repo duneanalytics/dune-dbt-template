@@ -4,13 +4,57 @@ This guide covers both local development and the CI/CD pipeline for the Dune DBT
 
 ## Local Development
 
-### Option 1: Activate Virtual Environment (Recommended for interactive work)
+### Option 1: Using direnv (Recommended)
+
+**Set up once:**
+
+```bash
+# Install direnv (if not already installed)
+# macOS: brew install direnv
+# Linux: see https://direnv.net/docs/installation.html
+
+# Configure your shell (add to ~/.bashrc or ~/.zshrc):
+eval "$(direnv hook bash)"  # for bash
+eval "$(direnv hook zsh)"   # for zsh
+
+# Navigate to project
+cd /path/to/dune-dbt-template
+
+# Copy and configure environment file
+cp .envrc.example .envrc
+# Edit .envrc with your actual credentials
+
+# Allow direnv
+direnv allow
+```
+
+**Then direnv handles everything automatically:**
+
+```bash
+# Just cd into the directory
+cd /path/to/dune-dbt-template
+# direnv automatically activates the virtual environment and sets env vars
+
+# Run dbt commands directly
+dbt deps           # Install packages
+dbt debug          # Test connection
+dbt compile        # Compile models
+dbt run            # Run models
+dbt test           # Run tests
+dbt docs generate  # Generate docs
+dbt docs serve     # View docs
+
+# When you cd out, direnv automatically deactivates
+cd ..
+```
+
+### Option 2: Manual Virtual Environment Activation
 
 **Do this once per terminal session:**
 
 ```bash
 # Navigate to project
-cd /path/to/data-transformations-dbt-template
+cd /path/to/dune-dbt-template
 
 # Activate virtual environment
 source .venv/bin/activate
@@ -36,7 +80,7 @@ dbt docs serve     # View docs
 deactivate
 ```
 
-### Option 2: Use `uv run` (No activation needed)
+### Option 3: Use `uv run` (No activation needed)
 
 **Good for scripts, CI/CD, or one-off commands:**
 
@@ -49,10 +93,11 @@ uv run dbt test
 
 ## Typical Local Development Session
 
+**With direnv (automatic activation):**
+
 ```bash
-# 1. Start your session
-cd /path/to/data-transformations-dbt-template
-source .venv/bin/activate
+# 1. Navigate to project (direnv activates automatically)
+cd /path/to/dune-dbt-template
 
 # 2. Ensure dependencies are up to date
 dbt deps
@@ -81,6 +126,18 @@ dbt run --select my_incremental_model --full-refresh
 # 10. Generate documentation
 dbt docs generate
 dbt docs serve
+
+# 11. Done! (direnv unloads when you cd out)
+```
+
+**Without direnv (manual activation):**
+
+```bash
+# 1. Start your session
+cd /path/to/dune-dbt-template
+source .venv/bin/activate
+
+# 2-10. Same as above...
 
 # 11. End your session
 deactivate
@@ -225,7 +282,11 @@ git checkout -b feature/my-new-model
 ### 2. Develop Locally
 
 ```bash
-# Activate venv
+# If using direnv, just cd to the project
+cd /path/to/dune-dbt-template
+# (environment activates automatically)
+
+# Or manually activate venv
 source .venv/bin/activate
 
 # Create your model
@@ -276,7 +337,8 @@ This prevents developers and CI runs from overwriting each other's data.
 ## Best Practices
 
 ### Local Development
-- **Always activate the venv** for interactive development sessions
+- **Use direnv** for automatic environment management (recommended)
+- **Or activate the venv** manually for interactive development sessions
 - **Use `uv run`** for automated scripts or one-off commands
 - **Run tests locally** before pushing to reduce CI failures
 - **Use model selection** to run only what you changed: `dbt run --select my_model+`
@@ -289,7 +351,9 @@ This prevents developers and CI runs from overwriting each other's data.
 - **Document your models** with descriptions
 
 ### CI/CD
-- The `.venv` directory is git-ignored, so each developer needs to run `uv sync`
+- The `.venv` directory and `.envrc` file are git-ignored for security
+- Each developer needs to copy `.envrc.example` to `.envrc` and configure it
+- With direnv, `uv sync` runs automatically; otherwise run it manually
 - Check your active venv: `which python` (should show `.venv/bin/python`)
 - Pipeline uses the `dunesql` profile on the self-hosted runner
 - All CI runs use `test_schema` to avoid conflicts
@@ -304,9 +368,27 @@ This prevents developers and CI runs from overwriting each other's data.
 
 ### Local Development Issues
 
+**direnv not loading:**
+```bash
+# Check if direnv is installed
+direnv version
+
+# Make sure your shell hook is configured
+# Add to ~/.zshrc or ~/.bashrc:
+eval "$(direnv hook zsh)"   # for zsh
+eval "$(direnv hook bash)"  # for bash
+
+# Allow the .envrc file
+direnv allow
+```
+
 **Virtual environment not activating:**
 ```bash
-# Recreate the environment
+# With direnv: check if .envrc exists and is allowed
+ls -la .envrc
+direnv allow
+
+# Without direnv: recreate the environment
 uv sync --reinstall
 source .venv/bin/activate
 ```

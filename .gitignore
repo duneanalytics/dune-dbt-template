@@ -17,7 +17,6 @@ uv.lock
 target/
 dbt_packages/
 logs/
-profiles.yml
 
 # IDE
 .vscode/
