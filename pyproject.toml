@@ -12,7 +12,7 @@ dependencies = [
 dbt = "dbt.cli.main:cli"
 
 [tool.uv]
-package = true
+package = false
 
 [dependency-groups]
 dev = []
