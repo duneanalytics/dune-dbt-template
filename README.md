@@ -22,10 +22,26 @@ source .venv/bin/activate
 
 > **Note:** After activating the virtual environment, you can run `dbt` commands directly without the `uv run` prefix. If you prefer not to activate, you can use `uv run dbt <command>` instead.
 
-### 2. Configure dbt Profile
+### 2. Set Up Environment Variables
+
+Create a `.env` file from the example and fill in your Dune credentials:
+
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit .env with your actual values
+# DUNE_API_KEY: Get from https://dune.com/settings/api
+# DUNE_TEAM_NAME: Your team name (e.g., "my_team")
+# DEV_SCHEMA_SUFFIX: Optional suffix for dev schemas (e.g., "john" or "dev")
+```
+
+The `.env` file will be automatically loaded by `uv` when you run commands. This file is gitignored and won't be committed.
+
+### 3. Configure dbt Profile
 
 
-Edit `profiles.yml` with your Dune connection details:
+Edit `profiles.yml` with your Dune connection details (the environment variables from `.env` will be used):
 - **Host**: `dune-api-trino.dune.com`
 - **User**: dune
 - **Password**: Your Dune API key
