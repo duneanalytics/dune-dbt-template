@@ -5,13 +5,11 @@
 #}
 
 {{ config(
-    schema = 'test_schema'
-    , alias = 'dbt_template_incremental_model'
+    alias = 'dbt_template_incremental_model'
     , materialized = 'incremental'
     , incremental_strategy = 'merge'
     , unique_key = ['block_number', 'block_date']
     , incremental_predicates = ["DBT_INTERNAL_DEST.block_date >= now() - interval '1' day"]
-    , on_table_exists = 'replace'
 )
 }}
 

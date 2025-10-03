@@ -24,21 +24,15 @@ source .venv/bin/activate
 
 ### 2. Configure dbt Profile
 
-Create your dbt profile at `~/.dbt/profiles.yml`:
 
-```bash
-# Copy the example file
-mkdir -p ~/.dbt
-cp profiles_example_file.yml ~/.dbt/profiles.yml
-```
-
-Edit `~/.dbt/profiles.yml` with your Dune connection details:
-- **Host**: `dune-api-trino.dune.com` (prod) or `dune-api-trino.dev.dune.com` (dev)
-- **User**: Your team name
+Edit `profiles.yml` with your Dune connection details:
+- **Host**: `dune-api-trino.dune.com`
+- **User**: dune
 - **Password**: Your Dune API key
+- **Schema**: Your team name, optionally with `__tmp_` suffix for dev target
 - **Session properties**: Must include `transformations: true`
 
-See `profiles_example_file.yml` for the complete configuration.
+See `profiles.yml` for the complete configuration.
 
 ### 3. Install dbt Packages
 
@@ -97,7 +91,7 @@ uv run dbt run
 ├── packages.yml          # dbt packages (dbt_utils)
 ├── pyproject.toml        # uv/Python dependencies
 ├── uv.lock              # Locked dependencies
-└── profiles_example_file.yml  # Example dbt profile configuration
+└── profiles.yml  # Example dbt profile configuration
 ```
 
 ## Example Models
@@ -122,12 +116,6 @@ This template includes three example models that query Ethereum transaction data
 - **Tests**: Includes `dbt_utils.unique_combination_of_columns` test
 
 ## Custom Macros
-
-### Schema Naming (`generate_schema_name`)
-Automatically handles schema naming across environments:
-- **Production**: Uses clean schema names (e.g., `test_schema`)
-- **CI/Test**: Uses `test_schema` for GitHub Actions runs (detects `github_actions` prefix)
-- **Development**: Prefixes with developer namespace (e.g., `dev_user_test_schema`)
 
 ### S3 Bucket Configuration (`trino__create_schema`)
 Configures S3 storage locations for schemas based on target environment.
@@ -154,7 +142,7 @@ The project includes a GitHub Actions workflow (`.github/workflows/dbt_run.yml`)
 
 ### Runner Configuration:
 - Uses self-hosted runners with label `spellbook-trino-ci`
-- Requires `dunesql` profile configured at `/home/github/.dbt/profiles.yml`
+- requires `DUNE_API_KEY` and `DUNE_TEAM_NAME` environment variables to be set
 - 90-minute timeout for long-running jobs
 
 ## Cluster Activation Script
@@ -234,8 +222,6 @@ Edit `packages.yml` to add dbt packages:
 packages:
   - package: dbt-labs/dbt_utils
     version: [">=1.0.0", "<2.0.0"]
-  - package: calogica/dbt_expectations
-    version: [">=0.8.0", "<0.9.0"]
 ```
 
 Then run:
@@ -249,9 +235,8 @@ The project automatically adapts behavior based on the target environment:
 
 | Environment | Detection | Schema Naming | Use Case |
 |-------------|-----------|---------------|----------|
-| **Production** | `target.name == 'prod'` | Clean schema names | Production deployments |
-| **CI/Test** | `target.schema.startswith("github_actions")` | `test_schema` | GitHub Actions PR checks |
-| **Development** | Default | Prefixed schemas (`user_schema`) | Local development |
+| **Production** | `target.name == 'prod'` | Clean schema names using your team name | Production deployments |
+| **Development** |  default |  team__tmp_<DEV_SCHEMA_SUFFIX> | Local development and CI scripts |
 
 ## Troubleshooting
 

@@ -1,40 +1,22 @@
 {#
-    goal: depending on how we handle dev vs. prod environments (i.e. s3), we may not need this macro override
+    You can write to 2 different schemas.
+    - <team_name> : use this for prod deployments
+    - <team_name>__tmp_ : use this for general dev deployments
+    - <team_name>__tmp_<dev_name> : use this for dev deployments by a specific developer or PR
 
-    Custom schema naming logic for dev vs prod environments
-    
-    Purpose:
-    - PROD: Use clean schema names directly (e.g., "dbt_template")
-      Allows production tables to live in well-defined schemas without prefixes
-    
-    - DEV: Prefix schemas with developer namespace (e.g., "dev_user_dbt_template")
-      Prevents developers from overwriting each other's work and isolates testing
-      
-    Usage:
-    - In prod target: custom_schema_name becomes the schema name
-    - In dev targets: default_schema + custom_schema_name for namespacing
-    - No custom_schema_name: uses default target.schema
+reminder: target schema is set in profiles.yml
 #}
 
 {% macro generate_schema_name(custom_schema_name, node) -%}
 
-    {%- set default_schema = target.schema -%}
-    {%- if target.name == 'prod' and custom_schema_name is not none -%}
-        {# prod environment #}
-        {{ custom_schema_name | trim }}
-
-    {%- elif target.schema.startswith("github_actions") -%}
-        {# test environment, CI pipeline #}
-        {{ 'test_schema' }}
-
-    {%- elif custom_schema_name is none -%}
-        
-        {{ default_schema }}
-
+    {%- if target.name == 'prod' -%}
+        {# prod environment, writes to target schema #}
+        {{ target.schema }}
+    {%- elif target.name != 'prod' and env_var('DEV_SCHEMA_SUFFIX') is not none -%}
+        {# dev environments, writes to target schema with dev suffix #}
+        {{ target.schema }}{{ env_var('DEV_SCHEMA_SUFFIX') | trim }}
     {%- else -%}
-        {# dev environment, running locally #}
-        {{ default_schema }}_{{ custom_schema_name | trim }}
-
+        {{target.schema}} 
     {%- endif -%}
 
 {%- endmacro %}

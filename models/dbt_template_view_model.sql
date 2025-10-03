@@ -1,6 +1,5 @@
 {{ config(
-    schema = 'test_schema'
-    , alias = 'dbt_template_view_model'
+    alias = 'dbt_template_view_model'
     , materialized = 'view'
 )
 }}

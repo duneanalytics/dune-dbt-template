@@ -11,7 +11,7 @@ Get up and running with the Dune DBT Template in minutes.
 - [x] ✅ GitHub Actions workflow ready
 - [ ] ⏳ Install dependencies with `uv sync`
 - [ ] ⏳ Install dbt packages with `dbt deps`
-- [ ] ⏳ Configure your Dune connection in `~/.dbt/profiles.yml`
+- [ ] ⏳ Configure your Dune connection in `profiles.yml`
 - [ ] ⏳ Test connection with `dbt debug`
 
 ## Next Steps
@@ -40,26 +40,16 @@ dbt deps
 
 ### 3. Configure Your Dune Connection
 
-```bash
-# Create dbt config directory
-mkdir -p ~/.dbt
-
-# Copy example profile
-cp profiles_example_file.yml ~/.dbt/profiles.yml
-
-# Edit with your Dune connection details
-nano ~/.dbt/profiles.yml  # or use your preferred editor
-```
 
 **Required settings in `profiles.yml`:**
 
 For the `dbt_template_api` profile:
-- `host`: `dune-api-trino.dune.com` (prod) or `dune-api-trino.dev.dune.com` (dev)
+- `host`: `dune-api-trino.dune.com` (prod)
 - `port`: `443`
 - `method`: `ldap`
-- `catalog`: `delta_prod`
+- `database`: `hive`
 - `schema`: Your team name (e.g., `dune`)
-- `user`: Your team name
+- `user`: `dune`
 - `password`: Your Dune API key
 - `session_properties.transformations`: `true` (required!)
 - `http_scheme`: `https`
@@ -204,14 +194,12 @@ When you open a pull request, the GitHub Actions workflow automatically:
 7. ✅ Runs incremental update
 8. ✅ Tests again to verify incremental logic
 
-All models in CI use the `test_schema` (configured in `generate_schema_name` macro).
 
 ## Troubleshooting
 
 ### "Profile not found" error
-- Make sure `~/.dbt/profiles.yml` exists
+- Make sure `profiles.yml` exists
 - Verify the profile name is `dbt_template_api` (as set in `dbt_project.yml`)
-- Check that you copied from `profiles_example_file.yml`
 
 ### Connection errors
 - Check your Dune API key and team name

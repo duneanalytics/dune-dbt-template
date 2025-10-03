@@ -9,6 +9,11 @@ jobs:
     runs-on: [ self-hosted, linux, spellbook-trino-ci ]
     timeout-minutes: 90
     
+    env:
+      DUNE_API_KEY: ${{ secrets.DUNE_API_KEY }}
+      DUNE_TEAM_NAME: ${{ vars.DUNE_TEAM_NAME }}
+      DEV_SCHEMA_SUFFIX: ${{ github.event.pull_request.number || github.ref_name }}
+    
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
@@ -26,10 +31,6 @@ jobs:
       - name: Install dependencies with uv
         run: uv sync
 
-      - name: Setup variables
-        run: |
-          echo "PROFILE=--profiles-dir $HOME/.dbt --profile dunesql" >> $GITHUB_ENV
-
       - name: Run dbt deps
         run: uv run dbt deps
 
@@ -37,16 +38,16 @@ jobs:
         run: "./scripts/activate-trino-cluster.sh"
 
       - name: Run dbt compile
-        run: uv run dbt compile $PROFILE
+        run: uv run dbt compile
 
       - name: Run dbt run (full refresh)
-        run: uv run dbt run $PROFILE --full-refresh
+        run: uv run dbt run --full-refresh
 
       - name: Run dbt test (after full refresh)
-        run: uv run dbt test $PROFILE
+        run: uv run dbt test
 
       - name: Run dbt run (incremental update)
-        run: uv run dbt run $PROFILE
+        run: uv run dbt run
 
       - name: Run dbt test (after incremental)
-        run: uv run dbt test $PROFILE
+        run: uv run dbt test
