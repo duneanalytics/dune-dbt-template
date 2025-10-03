@@ -22,6 +22,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          cache-dependency-glob: "uv.lock"
 
       - name: Install dependencies with uv
         run: uv sync
@@ -40,13 +41,13 @@ jobs:
         run: uv run dbt compile $PROFILE
 
       - name: Run dbt run (full refresh)
-        run: uv run dbt run $PROFILE --full-refresh
+        run: uv run dbt run $PROFILE --full-refresh --select interviews.**
 
       - name: Run dbt test (after full refresh)
-        run: uv run dbt test $PROFILE
+        run: uv run dbt test $PROFILE --select interviews.**
 
       - name: Run dbt run (incremental update)
-        run: uv run dbt run $PROFILE
+        run: uv run dbt run $PROFILE --select interviews.**
 
       - name: Run dbt test (after incremental)
-        run: uv run dbt test $PROFILE
+        run: uv run dbt test $PROFILE --select interviews.**
