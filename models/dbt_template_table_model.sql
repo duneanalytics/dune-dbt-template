@@ -10,7 +10,6 @@
     schema = 'test_schema'
     , alias = 'dbt_template_table_model'
     , materialized = 'table'
-    , on_table_exists = 'replace'
 )
 }}
 
