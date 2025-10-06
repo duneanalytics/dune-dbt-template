@@ -47,21 +47,22 @@ source .venv/bin/activate
 
 ### 2. Configure dbt Profile
 
-Create your dbt profile at `~/.dbt/profiles.yml`:
+The repository includes a `profiles.yml` file with two profile configurations:
+- **`dbt_template_old`**: Legacy direct access (currently active in `dbt_project.yml`)
+- **`dbt_template`**: New Dune API access
 
-```bash
-# Copy the example file
-mkdir -p ~/.dbt
-cp profiles_example_file.yml ~/.dbt/profiles.yml
-```
+**For local development**, you can either:
+1. Use the included `profiles.yml` with environment variables (set in `.envrc`)
+2. Create a personal `~/.dbt/profiles.yml` to override
 
-Edit `~/.dbt/profiles.yml` with your Dune connection details:
-- **Host**: `dune-api-trino.dune.com` (prod) or `dune-api-trino.dev.dune.com` (dev)
+**Key configuration settings:**
+- **Host**: `dune-api-trino.dune.com` (for API access)
 - **User**: Your team name
 - **Password**: Your Dune API key
+- **Catalog**: `delta_prod` (for API access)
 - **Session properties**: Must include `transformations: true`
 
-See `profiles_example_file.yml` for the complete configuration.
+See `profiles.yml` for the complete configuration and `.envrc.example` for required environment variables.
 
 ### 3. Install dbt Packages
 
@@ -101,14 +102,17 @@ uv run dbt run
 │   └── workflows/
 │       └── dbt_run.yml           # PR checks CI pipeline
 ├── models/
-│   ├── dbt_template_view_model.sql          # Example view model
-│   ├── dbt_template_table_model.sql         # Example table model
-│   ├── dbt_template_incremental_model.sql   # Example incremental model
-│   ├── _schema.yml                          # Model documentation & tests
-│   └── _sources.yml                         # Source definitions
+│   ├── interviews/               # Interview example models
+│   │   ├── uniswap_v3_trades.sql
+│   │   └── _schema.yml
+│   └── templates/                # Template example models
+│       ├── dbt_template_view_model.sql          # Example view model
+│       ├── dbt_template_table_model.sql         # Example table model
+│       ├── dbt_template_incremental_model.sql   # Example incremental model
+│       ├── _schema.yml                          # Model documentation & tests
+│       └── _sources.yml                         # Source definitions
 ├── macros/
 │   └── dune_dbt_overrides/
-│       ├── get_custom_schema.sql  # Custom schema naming logic
 │       ├── schema.sql             # S3 bucket configuration
 │       └── source.sql             # Source database resolution
 ├── scripts/
@@ -118,9 +122,10 @@ uv run dbt run
 ├── tests/                # Custom tests
 ├── dbt_project.yml       # dbt project configuration
 ├── packages.yml          # dbt packages (dbt_utils)
+├── profiles.yml          # dbt profile configuration with env vars
+├── .envrc.example        # Example environment variables
 ├── pyproject.toml        # uv/Python dependencies
-├── uv.lock              # Locked dependencies
-└── profiles_example_file.yml  # Example dbt profile configuration
+└── uv.lock              # Locked dependencies
 ```
 
 ## Example Models
@@ -146,17 +151,15 @@ This template includes three example models that query Ethereum transaction data
 
 ## Custom Macros
 
-### Schema Naming (`generate_schema_name`)
-Automatically handles schema naming across environments:
-- **Production**: Uses clean schema names (e.g., `test_schema`)
-- **CI/Test**: Uses `test_schema` for GitHub Actions runs (detects `github_actions` prefix)
-- **Development**: Prefixes with developer namespace (e.g., `dev_user_test_schema`)
+The `macros/dune_dbt_overrides/` directory contains Dune-specific macro overrides:
 
 ### S3 Bucket Configuration (`trino__create_schema`)
 Configures S3 storage locations for schemas based on target environment.
 
 ### Source Database Resolution (`source`)
 Automatically resolves source tables to the `delta_prod` database.
+
+> **Note:** Additional custom macros may be present for development purposes.
 
 ## CI/CD Pipeline
 
@@ -169,11 +172,13 @@ The project includes a GitHub Actions workflow (`.github/workflows/dbt_run.yml`)
 4. **Variables**: Configures `PROFILE` environment variable for dunesql profile
 5. **dbt deps**: Installs dbt packages (dbt_utils)
 6. **Activate Cluster**: Runs connectivity check with retry logic (up to 10 minutes)
-7. **Compile**: Validates SQL compilation
-8. **Full Refresh**: Runs all models with `--full-refresh`
-9. **Test**: Runs all tests after full refresh
-10. **Incremental Run**: Runs models again to test incremental logic
-11. **Test Again**: Validates incremental updates
+7. **Compile**: Validates SQL compilation (all models)
+8. **Full Refresh**: Runs `interviews.**` models with `--full-refresh`
+9. **Test**: Runs tests for `interviews.**` models after full refresh
+10. **Incremental Run**: Runs `interviews.**` models again to test incremental logic
+11. **Test Again**: Validates incremental updates for `interviews.**` models
+
+> **Note:** Currently, the CI workflow only runs models in the `interviews/` directory. To test template models or other directories, update the `--select` flag in `.github/workflows/dbt_run.yml`.
 
 ### Runner Configuration:
 - Uses self-hosted runners with label `spellbook-trino-ci`
@@ -268,13 +273,15 @@ dbt deps
 
 ## Environment-Specific Behavior
 
-The project automatically adapts behavior based on the target environment:
+The project uses different profiles and configurations based on the environment:
 
-| Environment | Detection | Schema Naming | Use Case |
-|-------------|-----------|---------------|----------|
-| **Production** | `target.name == 'prod'` | Clean schema names | Production deployments |
-| **CI/Test** | `target.schema.startswith("github_actions")` | `test_schema` | GitHub Actions PR checks |
-| **Development** | Default | Prefixed schemas (`user_schema`) | Local development |
+| Environment | Profile | Target | Configuration Source | Use Case |
+|-------------|---------|--------|---------------------|----------|
+| **Production** | `dbt_template` or `dbt_template_old` | `prod` | `profiles.yml` + env vars | Production deployments |
+| **CI/Test** | `dunesql` | (runner config) | `/home/github/.dbt/profiles.yml` | GitHub Actions PR checks |
+| **Development** | `dbt_template` or `dbt_template_old` | `dev` (default) | `profiles.yml` + `.envrc` | Local development |
+
+Configure different schemas and connection details via environment variables (`.envrc`) or in your dbt profiles.
 
 ## Troubleshooting
 

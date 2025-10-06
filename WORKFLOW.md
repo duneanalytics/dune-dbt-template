@@ -145,10 +145,12 @@ deactivate
 
 ## Working with Different Model Types
 
+The repository includes example models in `models/templates/` and `models/interviews/`.
+
 ### View Models
 ```bash
 # Views are always rebuilt completely
-dbt run --select dbt_template_view_model
+dbt run --select templates.dbt_template_view_model
 
 # Fast to run, always fresh
 # Good for: Lightweight transformations, frequently changing data
@@ -157,7 +159,7 @@ dbt run --select dbt_template_view_model
 ### Table Models
 ```bash
 # Tables replace existing data
-dbt run --select dbt_template_table_model
+dbt run --select templates.dbt_template_table_model
 
 # Uses on_table_exists='replace' for Dune compatibility
 # Good for: Static snapshots, moderate-sized datasets
@@ -166,10 +168,10 @@ dbt run --select dbt_template_table_model
 ### Incremental Models
 ```bash
 # First run (full refresh)
-dbt run --select dbt_template_incremental_model --full-refresh
+dbt run --select templates.dbt_template_incremental_model --full-refresh
 
 # Subsequent runs (incremental)
-dbt run --select dbt_template_incremental_model
+dbt run --select templates.dbt_template_incremental_model
 
 # Incremental runs only process new data (last 1 day)
 # Good for: Large datasets, append-only data
@@ -230,12 +232,14 @@ The workflow runs when:
 5. Setup environment variables (PROFILE for dunesql)
 6. Install dbt packages (dbt deps)
 7. Activate Trino cluster (with retry logic)
-8. Compile models (dbt compile)
-9. Full refresh run (dbt run --full-refresh)
-10. Test after full refresh (dbt test)
-11. Incremental run (dbt run)
-12. Test after incremental (dbt test)
+8. Compile models (dbt compile - all models)
+9. Full refresh run (dbt run --full-refresh --select interviews.**)
+10. Test after full refresh (dbt test --select interviews.**)
+11. Incremental run (dbt run --select interviews.**)
+12. Test after incremental (dbt test --select interviews.**)
 ```
+
+> **Note:** The CI workflow currently only runs and tests models in the `interviews/` directory. To include other models (like those in `templates/`), update the `--select` flag in `.github/workflows/dbt_run.yml`.
 
 ### Runner Configuration
 
@@ -246,15 +250,7 @@ The workflow runs when:
 
 ### Environment Detection
 
-The pipeline automatically uses `test_schema` for all models through the `generate_schema_name` macro:
-
-```sql
-{%- elif target.schema.startswith("github_actions") -%}
-    {# test environment, CI pipeline #}
-    {{ 'test_schema' }}
-```
-
-This keeps CI test data isolated from production and development schemas.
+The pipeline uses the `dunesql` profile which is configured on the self-hosted runner at `/home/github/.dbt/profiles.yml`. This profile determines the schema and connection settings used during CI runs, keeping CI test data isolated from production and development schemas.
 
 ### Cluster Activation
 
@@ -289,8 +285,9 @@ cd /path/to/dune-dbt-template
 # Or manually activate venv
 source .venv/bin/activate
 
-# Create your model
-nano models/my_new_model.sql
+# Create your model in the appropriate directory
+# For example, in interviews/ or templates/
+nano models/interviews/my_new_model.sql
 
 # Test locally
 dbt run --select my_new_model
@@ -300,7 +297,7 @@ dbt test --select my_new_model
 ### 3. Commit and Push
 
 ```bash
-git add models/my_new_model.sql
+git add models/interviews/my_new_model.sql
 git commit -m "Add new Ethereum analysis model"
 git push origin feature/my-new-model
 ```
@@ -326,13 +323,13 @@ Once all checks pass and you have approvals:
 
 ## Schema Naming by Environment
 
-| Environment | Schema Pattern | Example | Detection |
-|-------------|---------------|---------|-----------|
-| **Production** | Clean schema name | `test_schema` | `target.name == 'prod'` |
-| **CI/Test** | Fixed test schema | `test_schema` | `target.schema.startswith("github_actions")` |
-| **Development** | Prefixed schema | `john_test_schema` | Default |
+| Environment | Profile | Configuration | Schema Source |
+|-------------|---------|---------------|---------------|
+| **Production** | `dbt_template` or `dbt_template_old` | Target: `prod` | From `profiles.yml` env vars |
+| **CI/Test** | `dunesql` | Self-hosted runner | `/home/github/.dbt/profiles.yml` |
+| **Development** | `dbt_template` or `dbt_template_old` | Target: `dev` (default) | From `.envrc` via `profiles.yml` |
 
-This prevents developers and CI runs from overwriting each other's data.
+This prevents developers and CI runs from overwriting each other's data. Configure different schemas in your environment variables or dbt profiles for each environment.
 
 ## Best Practices
 
@@ -356,7 +353,7 @@ This prevents developers and CI runs from overwriting each other's data.
 - With direnv, `uv sync` runs automatically; otherwise run it manually
 - Check your active venv: `which python` (should show `.venv/bin/python`)
 - Pipeline uses the `dunesql` profile on the self-hosted runner
-- All CI runs use `test_schema` to avoid conflicts
+- CI currently only runs `interviews.**` models; update workflow to test other directories
 
 ### Testing
 - Use `dbt_utils.unique_combination_of_columns` for composite key uniqueness
