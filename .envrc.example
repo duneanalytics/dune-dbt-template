@@ -28,3 +28,6 @@ export DBT_TEMPLATE_API_KEY=your_dune_api_key_here # unique API key from your ow
 export DBT_TEMPLATE_HOST=dune-api-trino.dune.com
 export DBT_TEMPLATE_CATALOG=delta_prod
 export DBT_TEMPLATE_SCHEMA=your_dune_team_name
+
+# DEV_SCHEMA_SUFFIX is used to add a suffix to the schema name for dev/CI deployments
+export DEV_SCHEMA_SUFFIX=your_name_or_project_here # this value can be anything, it's meant to be a suffix on schema names to help differentiate from prod or other developer work
