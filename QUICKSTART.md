@@ -31,12 +31,21 @@ cp .envrc.example .envrc
 # Edit .envrc with your actual credentials
 nano .envrc  # or use your preferred editor
 
-# Update these values:
-# - DBT_TEMPLATE_PASSWORD (your Trino password)
-# - DBT_TEMPLATE_USER (your username)
-# - DBT_TEMPLATE_SCHEMA (e.g., dbt_yourname)
-# - DBT_TEMPLATE_API_KEY (your Dune API key)
-# - DBT_TEMPLATE_API_SCHEMA (your team name)
+# Update these values for the NEW API profile (dbt_template):
+# - DBT_TEMPLATE_USER (defaults to 'dune')
+# - DBT_TEMPLATE_API_KEY (your Dune API key from team settings)
+# - DBT_TEMPLATE_HOST (dune-api-trino.dune.com for prod)
+# - DBT_TEMPLATE_CATALOG (defaults to 'delta_prod')
+# - DBT_TEMPLATE_SCHEMA (your Dune team name)
+# - DEV_SCHEMA_SUFFIX (your name or identifier for dev schemas)
+#
+# Also update legacy profile values (dbt_template_old) if needed:
+# - DBT_TEMPLATE_OLD_USER
+# - DBT_TEMPLATE_OLD_PASSWORD
+# - DBT_TEMPLATE_OLD_HOST
+# - DBT_TEMPLATE_OLD_SCHEMA
+# - DBT_TEMPLATE_OLD_ROUTING_GROUP
+# - DBT_TEMPLATE_OLD_EXTRA_CREDENTIAL
 
 # Allow direnv to load the environment
 direnv allow
@@ -73,20 +82,13 @@ dbt deps
 
 ### 3. Configure Your Dune Connection
 
-```bash
-# Create dbt config directory
-mkdir -p ~/.dbt
+The repository includes a `profiles.yml` file with two profile configurations:
+- **`dbt_template_old`**: Legacy direct access (currently active in `dbt_project.yml`)
+- **`dbt_template`**: New Dune API access
 
-# Copy example profile
-cp profiles_example_file.yml ~/.dbt/profiles.yml
+**For local development**, the included `profiles.yml` uses environment variables from your `.envrc` file. You can also create a personal `~/.dbt/profiles.yml` to override if needed.
 
-# Edit with your Dune connection details
-nano ~/.dbt/profiles.yml  # or use your preferred editor
-```
-
-**Required settings in `profiles.yml`:**
-
-For the `dbt_template_api` profile:
+**Required settings for the API profile (`dbt_template`):**
 - `host`: `dune-api-trino.dune.com` (prod) or `dune-api-trino.dev.dune.com` (dev)
 - `port`: `443`
 - `method`: `ldap`
@@ -96,6 +98,8 @@ For the `dbt_template_api` profile:
 - `password`: Your Dune API key
 - `session_properties.transformations`: `true` (required!)
 - `http_scheme`: `https`
+
+See `profiles.yml` and `.envrc.example` for complete configuration details.
 
 ### 4. Test Your Connection
 
@@ -135,23 +139,17 @@ dbt test
 
 ### 7. Explore the Example Models
 
-The template includes three example models that demonstrate different materializations:
+The template includes example models in two directories:
 
-**View Model** (`models/dbt_template_view_model.sql`):
-- Lightweight, always fresh
-- Counts transactions per block for last day
-- Good for fast-changing data
+**Template Models** (`models/templates/`):
+- **View Model** (`dbt_template_view_model.sql`): Lightweight, always fresh
+- **Table Model** (`dbt_template_table_model.sql`): Uses `on_table_exists='replace'` for Dune compatibility
+- **Incremental Model** (`dbt_template_incremental_model.sql`): Efficient updates with merge strategy
 
-**Table Model** (`models/dbt_template_table_model.sql`):
-- Static snapshot
-- Uses `on_table_exists='replace'` for Dune compatibility
-- Good for static or slowly changing data
+**Interview Models** (`models/interviews/`):
+- **Uniswap V3 Trades** (`uniswap_v3_trades.sql`): Example analysis model
 
-**Incremental Model** (`models/dbt_template_incremental_model.sql`):
-- Efficient updates with merge strategy
-- Processes last 1 day incrementally, last 7 days on full refresh
-- Includes `dbt_utils` test for uniqueness
-- Good for large, append-only datasets
+All models demonstrate different materializations and best practices for Dune Analytics.
 
 ### 8. Test Incremental Updates
 
@@ -168,8 +166,9 @@ dbt run
 ### 9. Create Your Own Models
 
 ```bash
-# Create a new model file
-cat > models/my_ethereum_model.sql << 'EOF'
+# Create a new model file in your desired directory
+# For example, in the interviews directory:
+cat > models/interviews/my_ethereum_model.sql << 'EOF'
 {{ config(
     schema='test_schema',
     alias='my_ethereum_model',
@@ -246,19 +245,22 @@ When you open a pull request, the GitHub Actions workflow automatically:
 2. ✅ Installs dependencies
 3. ✅ Waits for Trino cluster (up to 10 minutes)
 4. ✅ Compiles all models
-5. ✅ Runs full refresh
-6. ✅ Tests all models
-7. ✅ Runs incremental update
+5. ✅ Runs full refresh on `interviews.**` models
+6. ✅ Tests `interviews.**` models
+7. ✅ Runs incremental update on `interviews.**` models
 8. ✅ Tests again to verify incremental logic
 
-All models in CI use the `test_schema` (configured in `generate_schema_name` macro).
+> **Note:** The CI pipeline currently only runs models in the `interviews/` directory. To test other models, update the `--select` flag in `.github/workflows/dbt_run.yml`.
+
+The workflow uses the `dunesql` profile from the self-hosted runner's configuration.
 
 ## Troubleshooting
 
 ### "Profile not found" error
-- Make sure `~/.dbt/profiles.yml` exists
-- Verify the profile name is `dbt_template_api` (as set in `dbt_project.yml`)
-- Check that you copied from `profiles_example_file.yml`
+- The repository includes `profiles.yml` that uses environment variables
+- If using direnv, make sure `.envrc` is configured and allowed
+- Verify the profile name is `dbt_template_old` (as currently set in `dbt_project.yml`)
+- You can also create `~/.dbt/profiles.yml` to override the repo profile
 
 ### Connection errors
 - Check your Dune API key and team name
