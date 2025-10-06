@@ -56,7 +56,7 @@ WITH uniswap AS
         , hash as tx_hash
         , "from" as tx_from
     from
-        unichain.transactions
+        "delta_prod"."unichain"."transactions"
     where
         block_date >= now() - interval '30' day
 )
