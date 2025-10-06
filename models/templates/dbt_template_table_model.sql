@@ -5,8 +5,7 @@
 #}
 
 {{ config(
-    schema = 'test_schema'
-    , alias = 'dbt_template_table_model'
+    alias = 'dbt_template_table_model'
     , materialized = 'table'
 )
 }}
