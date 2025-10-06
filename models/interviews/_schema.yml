@@ -1,0 +1,5 @@
+version: 2
+
+models:
+  - name: uniswap_v3_trades
+    description: "dbt model to analyze uniswap v3 trades"
