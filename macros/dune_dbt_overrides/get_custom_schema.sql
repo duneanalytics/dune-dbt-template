@@ -9,7 +9,7 @@
 
     {%- set dev_suffix = env_var('DEV_SCHEMA_SUFFIX', '') -%}
 
-    {%- if target.schema.startswith("github_actions") -%}
+    {%- if target.schema.startswith("wizard") -%}
         {# temp: until we use new API connection and generic GH runners #}
         {{ 'test_schema' }}
     {%- elif target.name == 'prod' -%}
