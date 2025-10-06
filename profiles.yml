@@ -21,6 +21,25 @@ dbt_template_old:
       session_properties:
         query_max_run_time: 12h
       timezone: UTC
+    dev:
+      type: trino
+      user: "{{ env_var('DBT_TEMPLATE_OLD_USER') }}"
+      password: "{{ env_var('DBT_TEMPLATE_OLD_PASSWORD') }}"
+      host: "{{ env_var('DBT_TEMPLATE_OLD_HOST') }}"
+      port: 443
+      method: ldap
+      database: hive
+      schema: "{{ env_var('DBT_TEMPLATE_OLD_SCHEMA') }}"
+      threads: 4
+      http_scheme: https
+      cert: true
+      http_headers:
+        X-Trino-Routing-Group: "{{ env_var('DBT_TEMPLATE_OLD_ROUTING_GROUP') }}"
+        X-Forwarded-Proto: https
+        X-Trino-Extra-Credential: "dune={{ env_var('DBT_TEMPLATE_OLD_EXTRA_CREDENTIAL') }}"
+      session_properties:
+        query_max_run_time: 12h
+      timezone: UTC
 
 # new config, dune connectivity, api
 dbt_template:
