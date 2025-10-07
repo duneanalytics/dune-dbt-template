@@ -1,13 +1,29 @@
 {#
     profiles.yml is used to set environments, target specific schema name:
-        - <team_name> : use this for prod deployments
-        - <team_name>__tmp_ : use this for general dev/CI deployments
-        - <team_name>__tmp_<dev_name> : use this for dev deployments by a specific developer or PR
+        - --target prod: <team_name>
+        - --target dev, no DEV_SCHEMA_SUFFIX value set: <team_name>__tmp_
+        - --target dev, DEV_SCHEMA_SUFFIX value set: <team_name>__tmp_<DEV_SCHEMA_SUFFIX>
+            --note: in CI workflow, DEV_SCHEMA_SUFFIX is set to PR_NUMBER
 
-        
     TEMP: force `test_schema` for all runs
 #}
 
 {% macro generate_schema_name(custom_schema_name, node) -%}
-    {{ 'test_schema' }}
+
+    {%- set dev_suffix = env_var('DEV_SCHEMA_SUFFIX', '') -%}
+
+    {%- if true -%}
+        {# temp: until we use new API connection and generic GH runners #}
+        {{ 'test_schema' }}
+    {%- elif target.name == 'prod' -%}
+        {# prod environment, writes to target schema #}
+        {{ target.schema }}
+    {%- elif target.name != 'prod' and dev_suffix != '' -%}
+        {# dev environments, writes to target schema with dev suffix #}
+        {{ target.schema }}__tmp_{{ dev_suffix | trim }}
+    {%- else -%}
+        {# default to dev environment, no dev suffix #}
+        {{ target.schema }}__tmp_
+    {%- endif -%}
+
 {%- endmacro %}
