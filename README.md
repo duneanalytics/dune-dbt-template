@@ -5,9 +5,11 @@ A dbt project template for Dune using Trino and uv for Python package management
 ## Quick Setup
 
 ```bash
-# One time
+# One time setup
 cp .env.example .env
-# Edit .env with your credentials
+# Edit .env with your Dune API key
+
+# Edit profiles.yml with your team name for schema
 
 # Every session
 uv sync                        # Only needed first time or after dependency changes
@@ -28,15 +30,14 @@ dbt docs generate && dbt docs serve  # View documentation
 
 ## Configuration
 
-### Environment Variables
+### Configuration Files
 
-Required variables in `.env`:
-- `DBT_TEMPLATE_USER` - user is always 'dune'
+**`profiles.yml`** - Connection configuration (edit once when forking):
+- Set `schema` to your Dune team name
+
+**`.env`** - Local credentials (never commit):
 - `DBT_TEMPLATE_API_KEY` - Your Dune API key
-- `DBT_TEMPLATE_HOST` - `dune-api-trino.dune.com` (prod) or `dune-api-trino.dev.dune.com` (dev)
-- `DBT_TEMPLATE_CATALOG` - catalog is always 'dune'
-- `DBT_TEMPLATE_SCHEMA` - Your Dune team name
-- `DEV_SCHEMA_SUFFIX` - Optional suffix for development schemas
+- `DEV_SCHEMA_SUFFIX` - Optional suffix for dev schemas
 
 ### DEV_SCHEMA_SUFFIX Toggle
 
@@ -76,10 +77,11 @@ dbt run --select model_name                 # Subsequent incremental runs
 
 GitHub Actions runs on every pull request using GitHub-hosted runners. Each PR gets an isolated schema: `{team}__tmp_pr{number}` (e.g., `dune__tmp_pr123`).
 
-**Required GitHub Secrets:**
-- `DUNE_API_KEY` - Your Dune API key
-- `DUNE_HOST` - `dune-api-trino.dune.com` (or `.dev.dune.com`)
-- `DUNE_SCHEMA` - Your team name
+**Setup:**
+1. Edit `profiles.yml` to set your team name (same as local setup)
+2. Add GitHub Secret: Settings → Secrets and variables → Actions → New secret
+   - Name: `DUNE_API_KEY`
+   - Value: Your Dune API key
 
 **Workflow:**
 1. Compiles all models

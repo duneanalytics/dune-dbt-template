@@ -1,16 +1,17 @@
 # dbt profile for Dune API connection
+# CHANGE THIS: Set 'schema' to your team name (lines 14, 29)
 dbt_template:
-  target: dev # default to dev for local development
+  target: dev
   outputs:
     dev:
       type: trino
-      user: "{{ env_var('DBT_TEMPLATE_USER') }}"
+      user: dune # do not change: user is always 'dune'
       password: "{{ env_var('DBT_TEMPLATE_API_KEY') }}"
-      host: "{{ env_var('DBT_TEMPLATE_HOST') }}"
+      host: dune-api-trino.dev.dune.com
       port: 443
       method: ldap
-      catalog: "{{ env_var('DBT_TEMPLATE_CATALOG') }}"
-      schema: "{{ env_var('DBT_TEMPLATE_SCHEMA') }}"
+      catalog: dune # do not change: catalog is always 'dune'
+      schema: dune  # CHANGE THIS: Set to your Dune team name
       threads: 4
       http_scheme: https
       cert: true
@@ -19,13 +20,13 @@ dbt_template:
       timezone: UTC
     prod:
       type: trino
-      user: "{{ env_var('DBT_TEMPLATE_USER') }}"
+      user: dune # do not change: user is always 'dune'
       password: "{{ env_var('DBT_TEMPLATE_API_KEY') }}"
-      host: "{{ env_var('DBT_TEMPLATE_HOST') }}"
+      host: dune-api-trino.dune.com
       port: 443
       method: ldap
-      catalog: "{{ env_var('DBT_TEMPLATE_CATALOG') }}"
-      schema: "{{ env_var('DBT_TEMPLATE_SCHEMA') }}"
+      catalog: dune # do not change: catalog is always 'dune'
+      schema: dune  # CHANGE THIS: Set to your team name
       threads: 4
       http_scheme: https
       cert: true

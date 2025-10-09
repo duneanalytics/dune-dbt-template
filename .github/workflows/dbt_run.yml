@@ -3,6 +3,13 @@ name: dbt CI
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    paths:
+      - 'models/**'
+      - 'macros/**'
+      - 'dbt_project.yml'
+      - 'profiles.yml'
+      - 'packages.yml'
+      - '.github/workflows/dbt_run.yml'
 
 jobs:
   dbt-run:
@@ -12,11 +19,7 @@ jobs:
     env:
       DBT_PROFILES_DIR: .
       DBT_TARGET: dev
-      DBT_TEMPLATE_USER: dune
       DBT_TEMPLATE_API_KEY: ${{ secrets.DUNE_API_KEY }}
-      DBT_TEMPLATE_HOST: ${{ secrets.DUNE_HOST }}
-      DBT_TEMPLATE_CATALOG: dune
-      DBT_TEMPLATE_SCHEMA: ${{ secrets.DUNE_SCHEMA }}
       DEV_SCHEMA_SUFFIX: pr${{ github.event.pull_request.number }}
     
     steps:
