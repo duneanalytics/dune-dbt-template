@@ -1,6 +1,7 @@
 {{ config(
     alias = 'dbt_template_view_model'
     , materialized = 'view'
+    , enabled = false
 )
 }}
 
