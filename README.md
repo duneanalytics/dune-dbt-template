@@ -72,6 +72,22 @@ dbt run --select model_name --full-refresh  # First run or rebuild
 dbt run --select model_name                 # Subsequent incremental runs
 ```
 
+## CI/CD
+
+GitHub Actions runs on every pull request using GitHub-hosted runners. Each PR gets an isolated schema: `{team}__tmp_pr{number}` (e.g., `dune__tmp_pr123`).
+
+**Required GitHub Secrets:**
+- `DUNE_API_KEY` - Your Dune API key
+- `DUNE_HOST` - `dune-api-trino.dune.com` (or `.dev.dune.com`)
+- `DUNE_SCHEMA` - Your team name
+
+**Workflow:**
+1. Compiles all models
+2. Runs with full refresh
+3. Tests models
+4. Runs incremental update
+5. Tests again
+
 ## Project Structure
 
 ```
