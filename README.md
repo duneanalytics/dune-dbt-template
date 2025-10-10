@@ -7,9 +7,9 @@ A dbt project template for Dune using Trino and uv for Python package management
 ```bash
 # One time setup
 cp .env.example .env
-# Edit .env with your Dune API key
-
-# Edit profiles.yml with your team name for schema
+# Edit .env and set:
+#   - DUNE_API_KEY: Your Dune API key (required)
+#   - DUNE_TEAM_NAME: Your team name (required - defaults to 'dune')
 
 # Every session
 uv sync                        # Only needed first time or after dependency changes
@@ -57,12 +57,17 @@ uv run --env-file .env dbt docs generate && uv run --env-file .env dbt docs serv
 
 ### Configuration Files
 
-**`profiles.yml`** - Connection configuration (edit once when forking):
-- Set `schema` to your Dune team name
-
 **`.env`** - Local credentials (never commit):
-- `DUNE_API_KEY` - Your Dune API key
+- `DUNE_API_KEY` - Your Dune API key (**required**)
+- `DUNE_TEAM_NAME` - Your Dune team name (**required**, defaults to `'dune'` in profiles.yml)
 - `DEV_SCHEMA_SUFFIX` - Optional suffix for dev schemas
+
+> **💡 Recommended:** Set `DUNE_TEAM_NAME` in `.env` for flexibility across environments.
+
+**`profiles.yml`** - Connection configuration:
+- Uses `DUNE_TEAM_NAME` env var for schema
+- Default fallback is `'dune'` if env var not set
+- **Alternative:** You can hardcode your team name by changing the default: `env_var('DUNE_TEAM_NAME', 'your_team')`
 
 ### DEV_SCHEMA_SUFFIX Toggle
 
@@ -122,10 +127,16 @@ uv run --env-file .env dbt run --select model_name                 # Subsequent 
 GitHub Actions runs on every pull request using GitHub-hosted runners. Each PR gets an isolated schema: `{team}__tmp_pr{number}` (e.g., `dune__tmp_pr123`).
 
 **Setup:**
-1. Edit `profiles.yml` to set your team name (same as local setup)
-2. Add GitHub Secret: Settings → Secrets and variables → Actions → New secret
-   - Name: `DUNE_API_KEY`
-   - Value: Your Dune API key
+1. Add GitHub Secrets: Settings → Secrets and variables → Actions → New secret
+   - **Required**: `DUNE_API_KEY` - Your Dune API key
+   - **Required if team name ≠ 'dune'**: `DUNE_TEAM_NAME` - Your team name
+
+> **💡 Recommended approach:**
+> 1. Set `DUNE_TEAM_NAME` in `.env` for local development
+> 2. Add `DUNE_TEAM_NAME` as GitHub secret for CI/CD
+> 3. This keeps `profiles.yml` unchanged and works across all environments
+>
+> **Alternative:** Hardcode team name in `profiles.yml` by changing default to your team name
 
 **Workflow:**
 1. Compiles all models

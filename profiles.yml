@@ -1,5 +1,4 @@
 # dbt profile for Dune API connection
-# CHANGE THIS: Set 'schema' to your team name (lines 14, 29)
 dbt_template:
   target: dev
   outputs:
@@ -11,7 +10,9 @@ dbt_template:
       port: 443
       method: ldap
       catalog: dune # do not change: catalog is always 'dune'
-      schema: dune  # CHANGE THIS: Set to your Dune team name
+      # schema: REQUIRED - Set DUNE_TEAM_NAME in .env to your team name
+      # Default is 'dune' if not set. To hardcode, replace: env_var('DUNE_TEAM_NAME', 'your_team')
+      schema: "{{ env_var('DUNE_TEAM_NAME', 'dune') }}"
       threads: 4
       http_scheme: https
       cert: true
@@ -26,7 +27,9 @@ dbt_template:
       port: 443
       method: ldap
       catalog: dune # do not change: catalog is always 'dune'
-      schema: dune  # CHANGE THIS: Set to your team name
+      # schema: REQUIRED - Set DUNE_TEAM_NAME in .env to your team name
+      # Default is 'dune' if not set. To hardcode, replace: env_var('DUNE_TEAM_NAME', 'your_team')
+      schema: "{{ env_var('DUNE_TEAM_NAME', 'dune') }}"
       threads: 4
       http_scheme: https
       cert: true
