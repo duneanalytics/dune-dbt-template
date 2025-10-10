@@ -1,52 +1,52 @@
-name: dbt_run CI pipeline
+name: dbt CI
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    paths:
+      - 'models/**'
+      - 'macros/**'
+      - 'dbt_project.yml'
+      - 'profiles.yml'
+      - 'packages.yml'
+      - '.github/workflows/dbt_run.yml'
 
 jobs:
   dbt-run:
-    runs-on: [ self-hosted, linux, spellbook-trino-ci ]
-    timeout-minutes: 90
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    env:
+      DUNE_API_KEY: ${{ secrets.DUNE_API_KEY }}
+      DUNE_TEAM_NAME: ${{ vars.DUNE_TEAM_NAME || 'dune' }}  # Set as GitHub Variable or defaults to 'dune'
+      DEV_SCHEMA_SUFFIX: pr${{ github.event.pull_request.number }}
     
     steps:
-      - name: Check out repository code
+      - name: Check out code
         uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
-      - name: Install dependencies with uv
-        run: uv sync
+      - name: Install dependencies
+        run: uv sync --locked
 
-      - name: Setup variables
-        run: |
-          echo "PROFILE=--profiles-dir $HOME/.dbt --profile dunesql" >> $GITHUB_ENV
-
-      - name: Run dbt deps
+      - name: Install dbt packages
         run: uv run dbt deps
 
-      - name: Activate Trino cluster
-        run: "./scripts/activate-trino-cluster.sh"
+      - name: Compile models
+        run: uv run dbt compile
 
-      - name: Run dbt compile
-        run: uv run dbt compile $PROFILE
+      - name: Run models (full refresh)
+        run: uv run dbt run --full-refresh
 
-      - name: Run dbt run (full refresh)
-        run: uv run dbt run $PROFILE --full-refresh
-
-      - name: Run dbt test (after full refresh)
-        run: uv run dbt test $PROFILE
+      - name: Test models (after full refresh)
+        run: uv run dbt test
   
-      - name: Run dbt run (incremental update)
-        run: uv run dbt run $PROFILE
+      - name: Run models (incremental)
+        run: uv run dbt run
 
-      - name: Run dbt test (after incremental)
-        run: uv run dbt test $PROFILE
+      - name: Test models (after incremental)
+        run: uv run dbt test

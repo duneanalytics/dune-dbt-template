@@ -1,59 +1,18 @@
-# old config, to be removed when API profile is fully tested
-dbt_template_old:
-  target: prod
-  outputs:
-    prod:
-      type: trino
-      user: "{{ env_var('DBT_TEMPLATE_OLD_USER') }}"
-      password: "{{ env_var('DBT_TEMPLATE_OLD_PASSWORD') }}"
-      host: "{{ env_var('DBT_TEMPLATE_OLD_HOST') }}"
-      port: 443
-      method: ldap
-      database: hive
-      schema: "{{ env_var('DBT_TEMPLATE_OLD_SCHEMA') }}"
-      threads: 4
-      http_scheme: https
-      cert: true
-      http_headers:
-        X-Trino-Routing-Group: "{{ env_var('DBT_TEMPLATE_OLD_ROUTING_GROUP') }}"
-        X-Forwarded-Proto: https
-        X-Trino-Extra-Credential: "dune={{ env_var('DBT_TEMPLATE_OLD_EXTRA_CREDENTIAL') }}"
-      session_properties:
-        query_max_run_time: 12h
-      timezone: UTC
-    dev:
-      type: trino
-      user: "{{ env_var('DBT_TEMPLATE_OLD_USER') }}"
-      password: "{{ env_var('DBT_TEMPLATE_OLD_PASSWORD') }}"
-      host: "{{ env_var('DBT_TEMPLATE_OLD_HOST') }}"
-      port: 443
-      method: ldap
-      database: hive
-      schema: "{{ env_var('DBT_TEMPLATE_OLD_SCHEMA') }}"
-      threads: 4
-      http_scheme: https
-      cert: true
-      http_headers:
-        X-Trino-Routing-Group: "{{ env_var('DBT_TEMPLATE_OLD_ROUTING_GROUP') }}"
-        X-Forwarded-Proto: https
-        X-Trino-Extra-Credential: "dune={{ env_var('DBT_TEMPLATE_OLD_EXTRA_CREDENTIAL') }}"
-      session_properties:
-        query_max_run_time: 12h
-      timezone: UTC
-
-# new config, dune connectivity, api
+# dbt profile for Dune API connection
 dbt_template:
-  target: dev # default to dev for local development
+  target: dev
   outputs:
     dev:
       type: trino
-      user: "{{ env_var('DBT_TEMPLATE_USER') }}"
-      password: "{{ env_var('DBT_TEMPLATE_API_KEY') }}"
-      host: "{{ env_var('DBT_TEMPLATE_HOST') }}"
+      user: dune # do not change: user is always 'dune'
+      password: "{{ env_var('DUNE_API_KEY') }}"
+      host: dune-api-trino.dev.dune.com
       port: 443
       method: ldap
-      catalog: "{{ env_var('DBT_TEMPLATE_CATALOG') }}"
-      schema: "{{ env_var('DBT_TEMPLATE_SCHEMA') }}"
+      catalog: dune # do not change: catalog is always 'dune'
+      # schema: REQUIRED - Set DUNE_TEAM_NAME in .env to your team name
+      # Default is 'dune' if not set. To hardcode, replace: env_var('DUNE_TEAM_NAME', 'your_team')
+      schema: "{{ env_var('DUNE_TEAM_NAME', 'dune') }}"
       threads: 4
       http_scheme: https
       cert: true
@@ -62,13 +21,15 @@ dbt_template:
       timezone: UTC
     prod:
       type: trino
-      user: "{{ env_var('DBT_TEMPLATE_USER') }}"
-      password: "{{ env_var('DBT_TEMPLATE_API_KEY') }}"
-      host: "{{ env_var('DBT_TEMPLATE_HOST') }}"
+      user: dune # do not change: user is always 'dune'
+      password: "{{ env_var('DUNE_API_KEY') }}"
+      host: dune-api-trino.dune.com
       port: 443
       method: ldap
-      catalog: "{{ env_var('DBT_TEMPLATE_CATALOG') }}"
-      schema: "{{ env_var('DBT_TEMPLATE_SCHEMA') }}"
+      catalog: dune # do not change: catalog is always 'dune'
+      # schema: REQUIRED - Set DUNE_TEAM_NAME in .env to your team name
+      # Default is 'dune' if not set. To hardcode, replace: env_var('DUNE_TEAM_NAME', 'your_team')
+      schema: "{{ env_var('DUNE_TEAM_NAME', 'dune') }}"
       threads: 4
       http_scheme: https
       cert: true
