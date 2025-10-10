@@ -61,7 +61,7 @@ uv run --env-file .env dbt docs generate && uv run --env-file .env dbt docs serv
 - Set `schema` to your Dune team name
 
 **`.env`** - Local credentials (never commit):
-- `DBT_TEMPLATE_API_KEY` - Your Dune API key
+- `DUNE_API_KEY` - Your Dune API key
 - `DEV_SCHEMA_SUFFIX` - Optional suffix for dev schemas
 
 ### DEV_SCHEMA_SUFFIX Toggle
@@ -152,7 +152,7 @@ dbt_project.yml  # Project configuration
 If using Option A (shell env vars):
 ```bash
 set -a && source .env && set +a    # Load variables
-env | grep DBT_TEMPLATE            # Verify they're set
+env | grep DUNE_API_KEY            # Verify they're set
 ```
 
 If using Option B (uv --env-file):

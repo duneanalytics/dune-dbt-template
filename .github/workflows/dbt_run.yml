@@ -19,7 +19,7 @@ jobs:
     env:
       DBT_PROFILES_DIR: .
       DBT_TARGET: dev
-      DBT_TEMPLATE_API_KEY: ${{ secrets.DUNE_API_KEY }}
+      DUNE_API_KEY: ${{ secrets.DUNE_API_KEY }}
       DEV_SCHEMA_SUFFIX: pr${{ github.event.pull_request.number }}
     
     steps:
