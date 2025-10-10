@@ -62,12 +62,14 @@ uv run --env-file .env dbt docs generate && uv run --env-file .env dbt docs serv
 - `DUNE_TEAM_NAME` - Your Dune team name (**required**, defaults to `'dune'` in profiles.yml)
 - `DEV_SCHEMA_SUFFIX` - Optional suffix for dev schemas
 
-> **💡 Recommended:** Set `DUNE_TEAM_NAME` in `.env` for flexibility across environments.
-
 **`profiles.yml`** - Connection configuration:
 - Uses `DUNE_TEAM_NAME` env var for schema
 - Default fallback is `'dune'` if env var not set
 - **Alternative:** You can hardcode your team name by changing the default: `env_var('DUNE_TEAM_NAME', 'your_team')`
+
+> **💡 Recommended setup:**
+> - **Local dev**: Set `DUNE_TEAM_NAME` in `.env`
+> - **CI/CD**: Set as GitHub Variable (visible in logs, defaults to `'dune'` if not set)
 
 ### DEV_SCHEMA_SUFFIX Toggle
 
@@ -127,16 +129,21 @@ uv run --env-file .env dbt run --select model_name                 # Subsequent 
 GitHub Actions runs on every pull request using GitHub-hosted runners. Each PR gets an isolated schema: `{team}__tmp_pr{number}` (e.g., `dune__tmp_pr123`).
 
 **Setup:**
-1. Add GitHub Secrets: Settings → Secrets and variables → Actions → New secret
-   - **Required**: `DUNE_API_KEY` - Your Dune API key
-   - **Required if team name ≠ 'dune'**: `DUNE_TEAM_NAME` - Your team name
+1. **Required**: Add GitHub Secret for API key
+   - Settings → Secrets and variables → Actions → **Secrets** tab → New repository secret
+   - Name: `DUNE_API_KEY`
+   - Value: Your Dune API key
 
-> **💡 Recommended approach:**
-> 1. Set `DUNE_TEAM_NAME` in `.env` for local development
-> 2. Add `DUNE_TEAM_NAME` as GitHub secret for CI/CD
-> 3. This keeps `profiles.yml` unchanged and works across all environments
->
-> **Alternative:** Hardcode team name in `profiles.yml` by changing default to your team name
+2. **Optional**: Set your team name (if not `'dune'`)
+   - Settings → Secrets and variables → Actions → **Variables** tab → New repository variable
+   - Name: `DUNE_TEAM_NAME`
+   - Value: Your team name
+   - **If not set, defaults to `'dune'`**
+
+> **💡 Why use Variables instead of Secrets?**
+> - Team name isn't sensitive - it's helpful to see in logs for debugging
+> - GitHub Secrets mask values in logs as `***`, making troubleshooting harder
+> - Variables are visible in logs and perfect for non-sensitive config
 
 **Workflow:**
 1. Compiles all models
