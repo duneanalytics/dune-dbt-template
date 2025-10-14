@@ -1,7 +1,9 @@
 {#
-    key notes on table model:
+    key notes on delete+insert model:
     - file_format defaults to delta (TODO: confirm this is dune hive metastore setting)
         - when providing file_format config to model, dbt fails on unable to support 'format' property
+    - incremental_predicates filter the DELETE operation on the target table for better performance
+        - this limits the rows scanned during the delete phase to match the source filter window
 #}
 
 {{ config(
@@ -9,7 +11,7 @@
     , materialized = 'incremental'
     , incremental_strategy = 'delete+insert'
     , unique_key = ['block_number', 'block_date']
-    , incremental_predicates = ["DBT_INTERNAL_DEST.block_date >= now() - interval '1' day"]
+    , incremental_predicates = ["block_date >= now() - interval '1' day"]
 )
 }}
 
