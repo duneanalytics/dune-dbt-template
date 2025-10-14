@@ -128,15 +128,53 @@ uv run --env-file .env dbt run --select model_name                 # Subsequent 
 
 ## CI/CD
 
-GitHub Actions runs on every pull request using GitHub-hosted runners. Each PR gets an isolated schema: `{team}__tmp_pr{number}` (e.g., `dune__tmp_pr123`).
+This project includes two GitHub Actions workflows:
 
-**Setup:**
-1. **Required**: Add GitHub Secret for API key
+### 1. CI Workflow (Pull Requests)
+
+Runs on every pull request using GitHub-hosted runners. Each PR gets an isolated schema: `{team}__tmp_pr{number}` (e.g., `dune__tmp_pr123`).
+
+**Workflow steps:**
+1. Enforces branch is up-to-date with main
+2. Compiles all models
+3. Runs modified models with full refresh
+4. Tests modified models
+5. Runs modified incremental models (incremental run)
+6. Tests modified incremental models again
+
+### 2. Production Workflow (Scheduled)
+
+Runs hourly on the main branch to keep production data up-to-date. Uses state-based selection to only run models that have changed since the last run.
+
+**Workflow steps:**
+1. Downloads previous manifest (if exists)
+2. Compiles current models
+3. **If state exists:** Runs modified models with full refresh (`state:modified+`)
+4. **If state exists:** Tests modified models
+5. Runs all models (regular run - handles incremental logic)
+6. Tests all models
+7. Uploads current manifest for next run
+8. Sends email alerts on failure
+
+**Note:** Steps 3-4 only run when a previous manifest is found. Steps 5-6 always run to ensure all models (especially incremental models) are up-to-date with their normal incremental logic.
+
+**How state comparison works:**
+- After each run, the workflow saves the `manifest.json` as a GitHub artifact
+- The next run downloads this manifest to compare against current code
+- Only models with changes (code, config, or upstream dependencies) are run
+- Uses `state:modified+` selector to include downstream dependencies
+- If no previous manifest exists (first run or artifact expired after 90 days), runs all models
+
+### Setup
+
+**Required secrets and variables:**
+
+1. **API Key** (Secret, required)
    - Settings → Secrets and variables → Actions → **Secrets** tab → New repository secret
    - Name: `DUNE_API_KEY`
    - Value: Your Dune API key
 
-2. **Optional**: Set your team name (if not `'dune'`)
+2. **Team Name** (Variable, optional)
    - Settings → Secrets and variables → Actions → **Variables** tab → New repository variable
    - Name: `DUNE_TEAM_NAME`
    - Value: Your team name
@@ -147,12 +185,15 @@ GitHub Actions runs on every pull request using GitHub-hosted runners. Each PR g
 > - GitHub Secrets mask values in logs as `***`, making troubleshooting harder
 > - Variables are visible in logs and perfect for non-sensitive config
 
-**Workflow:**
-1. Compiles all models
-2. Runs with full refresh
-3. Tests models
-4. Runs incremental update
-5. Tests again
+**Email notifications for production failures:**
+
+To receive email notifications when production runs fail:
+1. **Watch the repository**: Click "Watch" → "All Activity" or "Custom" (enable Actions)
+2. **Configure GitHub notifications**: 
+   - Settings → Notifications → Actions
+   - Enable "Notify me for failed workflows only"
+   - Verify your email address is set
+3. Test by checking a failed workflow run
 
 ## Project Structure
 
