@@ -16,7 +16,7 @@ with source_data as (
 	select
 		block_number
 		, block_date
-		, count(1) as total_tx_per_block -- count per block.
+		, count(1) as total_tx_per_block -- count per block
 	from
 		{{ source('ethereum', 'transactions') }}
 	where
