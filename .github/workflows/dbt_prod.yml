@@ -1,0 +1,84 @@
+name: dbt prod orchestration
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Run every hour at minute 0
+  workflow_dispatch:  # Allow manual triggers
+
+jobs:
+  dbt-prod:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    env:
+      DUNE_API_KEY: ${{ secrets.DUNE_API_KEY }}
+      DUNE_TEAM_NAME: ${{ vars.DUNE_TEAM_NAME || 'dune' }}  # Set as GitHub Variable or defaults to 'dune'
+    
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Install dbt packages
+        run: uv run dbt deps
+
+      - name: Download previous manifest for state comparison
+        id: download-manifest
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: prod-manifest-latest
+          path: ./state
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compile current models
+        run: uv run dbt compile
+
+      - name: Determine if previous state exists
+        id: check-state
+        run: |
+          if [ -f "./state/manifest.json" ]; then
+            echo "state_exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Previous manifest found - will run modified models only"
+          else
+            echo "state_exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️  No previous manifest found - will run all models (first run or artifact expired)"
+          fi
+
+      - name: Run modified models with full refresh
+        if: steps.check-state.outputs.state_exists == 'true'
+        run: uv run dbt run --select state:modified+ --state ./state --full-refresh
+
+      - name: Test modified models
+        if: steps.check-state.outputs.state_exists == 'true'
+        run: uv run dbt test --select state:modified+ --state ./state
+
+      - name: Run all models
+        run: uv run dbt run
+
+      - name: Test all models
+        run: uv run dbt test
+
+      - name: Upload current manifest for next run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-manifest-latest
+          path: target/manifest.json
+          retention-days: 90
+          overwrite: true # overwrite the artifact with the latest manifest, ensures only one artifact is uploaded
+
+      - name: Send email notification on failure
+        if: failure()
+        run: |
+          echo "::error::dbt Production run failed. Check the workflow logs for details."
+          echo "GitHub will send email notifications to watchers if email notifications are enabled."
