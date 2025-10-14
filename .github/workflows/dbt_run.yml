@@ -24,6 +24,33 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history for comparison
+
+      - name: Enforce branch is up-to-date with main
+        run: |
+          git fetch origin main:main
+          BEHIND=$(git rev-list --count HEAD..main)
+          AHEAD=$(git rev-list --count main..HEAD)
+          
+          echo "📊 Branch Status:"
+          echo "  - Commits ahead of main: $AHEAD"
+          echo "  - Commits behind main: $BEHIND"
+          
+          if [ $BEHIND -gt 0 ]; then
+            echo ""
+            echo "❌ ERROR: This branch is $BEHIND commit(s) behind main"
+            echo ""
+            echo "Please update your branch with the latest changes from main:"
+            echo "  git fetch origin main"
+            echo "  git merge origin/main"
+            echo "  # or: git rebase origin/main"
+            echo ""
+            echo "This ensures your changes are tested against the latest codebase."
+            exit 1
+          fi
+          
+          echo "✅ Branch is up-to-date with main"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -36,17 +63,50 @@ jobs:
       - name: Install dbt packages
         run: uv run dbt deps
 
-      - name: Compile models
+      - name: Checkout main branch for state comparison
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main-branch
+
+      - name: Install dbt packages for main branch
+        working-directory: main-branch
+        run: uv run dbt deps
+
+      - name: Generate manifest from main branch
+        working-directory: main-branch
         run: uv run dbt compile
 
-      - name: Run models (full refresh)
-        run: uv run dbt run --full-refresh
+      - name: Copy main manifest to state directory
+        run: |
+          mkdir -p state
+          cp main-branch/target/manifest.json state/manifest.json
 
-      - name: Test models (after full refresh)
-        run: uv run dbt test
+      - name: Upload main branch manifest as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: main-manifest
+          path: state/manifest.json
+          retention-days: 7
+
+      - name: Compile feature branch models
+        run: uv run dbt compile
+
+      - name: Upload feature branch manifest as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: feature-manifest
+          path: target/manifest.json
+          retention-days: 7
+
+      - name: Run modified models (full refresh)
+        run: uv run dbt run --select state:modified --state ./state --full-refresh
+
+      - name: Test modified models (after full refresh)
+        run: uv run dbt test --select state:modified --state ./state
   
-      - name: Run models (incremental)
-        run: uv run dbt run
+      - name: Run modified models (incremental)
+        run: uv run dbt run --select state:modified --state ./state
 
-      - name: Test models (after incremental)
-        run: uv run dbt test
+      - name: Test modified models (after incremental)
+        run: uv run dbt test --select state:modified --state ./state
