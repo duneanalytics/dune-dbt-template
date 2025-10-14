@@ -5,7 +5,7 @@
 #}
 
 {{ config(
-    alias = 'dbt_template_incremental_model'
+    alias = 'dbt_template_merge_incremental_model'
     , materialized = 'incremental'
     , incremental_strategy = 'merge'
     , unique_key = ['block_number', 'block_date']

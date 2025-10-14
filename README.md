@@ -108,7 +108,9 @@ Example models in `models/templates/`:
 |------|------|----------|
 | View | `dbt_template_view_model.sql` | Lightweight, always fresh data |
 | Table | `dbt_template_table_model.sql` | Static snapshots, uses `on_table_exists='replace'` |
-| Incremental | `dbt_template_incremental_model.sql` | Large datasets, efficient updates |
+| Incremental (Merge) | `dbt_template_merge_incremental_model.sql` | Large datasets, efficient updates via merge |
+| Incremental (Delete+Insert) | `dbt_template_delete_insert_incremental_model.sql` | Large datasets, efficient updates via delete+insert |
+| Incremental (Append) | `dbt_template_append_incremental_model.sql` | Large datasets, append-only with deduplication |
 
 **Working with incremental models:**
 
