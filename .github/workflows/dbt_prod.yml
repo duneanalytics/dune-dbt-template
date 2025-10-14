@@ -34,11 +34,13 @@ jobs:
       - name: Download previous manifest for state comparison
         id: download-manifest
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: dawidd6/action-download-artifact@v6
         with:
           name: prod-manifest-latest
           path: ./state
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: dbt_prod.yml
+          branch: main
+          if_no_artifact_found: warn
 
       - name: Compile current models
         run: uv run dbt compile
