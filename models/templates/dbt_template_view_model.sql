@@ -7,7 +7,7 @@
 select
     block_number
     , block_date
-    , count(1) as total_tx_per_block
+    , count(1) as total_tx_per_block -- this is a comment to test CI workflow
 from
     {{ source('ethereum', 'transactions') }}
 where
