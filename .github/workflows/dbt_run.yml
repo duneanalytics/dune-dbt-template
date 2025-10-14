@@ -105,8 +105,8 @@ jobs:
       - name: Test modified models (after full refresh)
         run: uv run dbt test --select state:modified --state ./state
   
-      - name: Run modified models (incremental)
-        run: uv run dbt run --select state:modified --state ./state
+      - name: Run modified incremental models (incremental run)
+        run: uv run dbt run --select state:modified,config.materialized:incremental --state ./state
 
-      - name: Test modified models (after incremental)
-        run: uv run dbt test --select state:modified --state ./state
+      - name: Test modified incremental models (after incremental run)
+        run: uv run dbt test --select state:modified,config.materialized:incremental --state ./state
