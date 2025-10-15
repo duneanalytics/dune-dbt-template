@@ -68,6 +68,26 @@ dbt test --select model_name        # Test specific model
 dbt docs generate && dbt docs serve # View documentation
 ```
 
+## Querying Models on Dune App/API
+
+⚠️ **Important:** When querying models built by this dbt project on the Dune app or API, you **must** include the `dune` catalog name.
+
+**Incorrect (won't work):**
+```sql
+select * from dbt_template_view_model
+select * from dune__tmp_.dbt_template_view_model
+```
+
+**Correct:**
+```sql
+select * from dune.dune.dbt_template_view_model
+select * from dune.dune__tmp_.dbt_template_view_model
+```
+
+**Pattern:** `dune.{schema}.{table}`
+
+**Note:** dbt logs don't output the catalog name, so you can't directly copy-paste queries from dbt output. You must add `dune.` prefix to the schema when querying in Dune.
+
 ## Model Templates
 
 | Type | File | Use Case |
