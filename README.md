@@ -26,8 +26,21 @@ source .venv/bin/activate
 set -a && source .env && set +a    # Load env vars (do this once per session)
 dbt deps                            # Install dbt packages
 dbt debug                           # Test connection
-dbt run                             # Run models
+dbt run                             # Run models (uses dev target by default)
 dbt test                            # Run tests
+```
+
+### Target Configuration
+
+This project uses dbt targets to control **schema naming**, not API endpoints:
+- Both `dev` and `prod` targets connect to the **same production API** (`dune-api-trino.dune.com`)
+- Target names control where models are written:
+  - **`dev` target** (default): Writes to `{team}__tmp_` schemas (safe for development)
+  - **`prod` target**: Writes to `{team}` schemas (production tables)
+
+**Local development** uses `dev` target by default. To test with prod target locally:
+```bash
+dbt run --target prod  # Use prod schema naming
 ```
 
 ### Optional: Schema Suffix
@@ -73,6 +86,8 @@ All templates are in `models/templates/`.
 
 Runs on every PR. Enforces branch is up-to-date with main, then runs and tests modified models.
 
+**Target:** Uses `dev` target with `DEV_SCHEMA_SUFFIX=pr{number}` for isolated testing
+
 **Steps:**
 1. Enforces branch is up-to-date with main
 2. Runs modified models with full refresh
@@ -85,6 +100,8 @@ Runs on every PR. Enforces branch is up-to-date with main, then runs and tests m
 ### Production Workflow (Scheduled)
 
 Runs hourly on main branch. Uses state comparison to only full refresh modified models, then runs normal cadence runs.
+
+**Target:** Sets `DBT_TARGET: prod` to write to production schemas (`{team}`)
 
 **Steps:**
 1. Downloads previous manifest (if exists)
@@ -137,10 +154,25 @@ source .venv/bin/activate
 ```
 models/          # dbt models and templates
 macros/          # Custom Dune macros (schema overrides, sources)
+  └── dune_dbt_overrides/
+      └── get_custom_schema.sql  # Controls schema naming based on target
 profiles.yml     # Connection profile (uses .env variables)
 dbt_project.yml  # Project configuration
 .env             # Your credentials (gitignored)
 ```
+
+### Schema Naming Logic
+
+The `get_custom_schema.sql` macro determines where models are written based on the dbt target:
+
+| Target | DEV_SCHEMA_SUFFIX | Schema Name | Use Case |
+|--------|-------------------|-------------|----------|
+| `prod` | (any) | `{team}` | Production tables |
+| `dev` | Not set | `{team}__tmp_` | Local development |
+| `dev` | Set to `pr123` | `{team}__tmp_pr123` | CI/CD per PR |
+| `dev` | Set to `alice` | `{team}__tmp_alice` | Personal dev space |
+
+This ensures safe isolation between development and production environments.
 
 ## Links
 
