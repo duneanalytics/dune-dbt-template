@@ -70,23 +70,20 @@ dbt docs generate && dbt docs serve # View documentation
 
 ## Querying Models on Dune App/API
 
-⚠️ **Important:** When querying models built by this dbt project on the Dune app or API, you **must** include the `dune` catalog name.
+⚠️ **Important:** Models must be queried with the `dune` catalog prefix on Dune app/API.
 
-**Incorrect (won't work):**
+**Pattern:** `dune.{team_name}.{table}` (where `{team_name}` = `DUNE_TEAM_NAME` from `.env`)
+
 ```sql
-select * from dbt_template_view_model
+-- ❌ Won't work
 select * from dune__tmp_.dbt_template_view_model
-```
 
-**Correct:**
-```sql
+-- ✅ Correct (with DUNE_TEAM_NAME=dune)
 select * from dune.dune.dbt_template_view_model
 select * from dune.dune__tmp_.dbt_template_view_model
 ```
 
-**Pattern:** `dune.{schema}.{table}`
-
-**Note:** dbt logs don't output the catalog name, so you can't directly copy-paste queries from dbt output. You must add `dune.` prefix to the schema when querying in Dune.
+**Note:** dbt logs omit the catalog name, so copy-pasting queries from dbt output won't work directly—you must prepend `dune.` to the schema.
 
 ## Model Templates
 
