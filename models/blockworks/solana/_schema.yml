@@ -1,0 +1,69 @@
+version: 2
+
+models:
+  - name: humidifi_solana_pools
+    description: "Humidifi DEX pool creation data on Solana blockchain"
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - launch_dt
+              - creation_tx
+              - pool
+    columns:
+      - name: pool
+        description: "The pool account address"
+      - name: launch_dt
+        description: "The timestamp when the pool was created"
+      - name: creation_tx
+        description: "The transaction ID that created the pool"
+      - name: base_mint_address
+        description: "The mint address of the base token in the pool"
+      - name: quote_mint_address
+        description: "The mint address of the quote token in the pool"
+      - name: base_token_account
+        description: "The token account for the base token"
+      - name: quote_token_account
+        description: "The token account for the quote token"
+      - name: base_symbol
+        description: "The symbol of the base token"
+      - name: quote_symbol
+        description: "The symbol of the quote token"
+      - name: pair
+        description: "The trading pair name (base_symbol-quote_symbol)"
+  
+  - name: humidifi_solana_trades
+    description: "Humidifi DEX trade data on Solana blockchain"
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - dt
+              - block_slot
+              - tx_id
+              - outer_instruction_index
+              - inner_instruction_index
+    columns:
+      - name: dt
+        description: "The timestamp of the trade"
+      - name: block_slot
+        description: "The block slot where the trade occurred"
+      - name: tx_id
+        description: "The transaction ID of the trade"
+      - name: outer_instruction_index
+        description: "The outer instruction index within the transaction"
+      - name: inner_instruction_index
+        description: "The inner instruction index within the outer instruction"
+      - name: trader_id
+        description: "The wallet address of the trader"
+      - name: outer_executing_account
+        description: "The outer executing account for the transfer"
+      - name: token_bought_mint_address
+        description: "The mint address of the token that was bought"
+      - name: token_sold_mint_address
+        description: "The mint address of the token that was sold"
+      - name: amount_usd
+        description: "The USD value of the trade"
+      - name: pool
+        description: "The pool account address where the trade occurred"
+
