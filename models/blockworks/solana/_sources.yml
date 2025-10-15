@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: solana
+    tables:
+      - name: instruction_calls
+  - name: tokens_solana
+    tables:
+      - name: transfers
+      - name: fungible
