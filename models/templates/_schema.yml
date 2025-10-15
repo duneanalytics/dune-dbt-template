@@ -1,0 +1,66 @@
+version: 2
+
+models:
+  - name: dbt_template_view_model
+    description: "A starter dbt view model"
+    columns:
+      - name: block_number
+        description: "The unique block number in last 1 day"
+      - name: block_date
+        description: "The date of the block"
+      - name: total_tx_per_block
+        description: "The total number of transactions per block"
+  - name: dbt_template_table_model
+    description: "A starter dbt table model"
+    columns:
+      - name: block_number
+        description: "The unique block number in last 1 day"
+      - name: block_date
+        description: "The date of the block"
+      - name: total_tx_per_block
+        description: "The total number of transactions per block"
+  - name: dbt_template_merge_incremental_model
+    description: "A starter dbt incremental model using merge strategy"
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - block_number
+              - block_date
+    columns:
+      - name: block_number
+        description: "The unique block number in last 1 day"
+      - name: block_date
+        description: "The date of the block"
+      - name: total_tx_per_block
+        description: "The total number of transactions per block"
+  - name: dbt_template_delete_insert_incremental_model
+    description: "A starter dbt incremental model using delete+insert strategy"
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - block_number
+              - block_date
+    columns:
+      - name: block_number
+        description: "The unique block number in last 1 day"
+      - name: block_date
+        description: "The date of the block"
+      - name: total_tx_per_block
+        description: "The total number of transactions per block"
+  - name: dbt_template_append_incremental_model
+    description: "A starter dbt incremental model using append strategy with deduplication logic"
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - block_number
+              - block_date
+    columns:
+      - name: block_number
+        description: "The unique block number in last 1 day"
+      - name: block_date
+        description: "The date of the block"
+      - name: total_tx_per_block
+        description: "The total number of transactions per block"
