@@ -68,6 +68,23 @@ dbt test --select model_name        # Test specific model
 dbt docs generate && dbt docs serve # View documentation
 ```
 
+## Querying Models on Dune App/API
+
+⚠️ **Important:** Models must be queried with the `dune` catalog prefix on Dune app/API.
+
+**Pattern:** `dune.{team_name}.{table}` (where `{team_name}` = `DUNE_TEAM_NAME` from `.env`)
+
+```sql
+-- ❌ Won't work
+select * from dune__tmp_.dbt_template_view_model
+
+-- ✅ Correct (with DUNE_TEAM_NAME=dune)
+select * from dune.dune.dbt_template_view_model
+select * from dune.dune__tmp_.dbt_template_view_model
+```
+
+**Note:** dbt logs omit the catalog name, so copy-pasting queries from dbt output won't work directly—you must prepend `dune.` to the schema.
+
 ## Model Templates
 
 | Type | File | Use Case |
