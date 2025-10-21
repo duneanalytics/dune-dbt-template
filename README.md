@@ -2,7 +2,18 @@
 
 A dbt project template for Dune using Trino and uv for Python package management.
 
-## Setup
+## 📚 Documentation
+
+**New to this repo?** See the [docs/](docs/) directory for complete guides:
+
+- **[Getting Started](docs/getting-started.md)** - Initial setup for new developers
+- **[Development Workflow](docs/development-workflow.md)** - How to develop models
+- **[dbt Best Practices](docs/dbt-best-practices.md)** - Patterns and configurations
+- **[Testing](docs/testing.md)** - Test requirements
+- **[CI/CD](docs/cicd.md)** - GitHub Actions workflows
+- **[Troubleshooting](docs/troubleshooting.md)** - Common issues
+
+## Quick Setup
 
 ### 1. Configure Credentials
 
@@ -67,6 +78,19 @@ dbt test                            # Run all tests
 dbt test --select model_name        # Test specific model
 dbt docs generate && dbt docs serve # View documentation
 ```
+
+## Cursor AI Rules
+
+This repo includes **optional** Cursor AI guidelines in `.cursor/rules/`:
+
+- **`dbt-best-practices.mdc`** - dbt patterns and best practices
+  - Repository configs, development workflow, incremental models
+  - Model organization, DuneSQL optimization, data quality
+
+- **`sql-style-guide.mdc`** - SQL formatting preferences
+  - Leading commas, tab indentation, lowercase keywords
+
+These are basic guidelines, not requirements. Cursor AI applies them automatically when available.
 
 ## Querying Models on Dune App/API
 
@@ -173,6 +197,10 @@ models/          # dbt models and templates
 macros/          # Custom Dune macros (schema overrides, sources)
   └── dune_dbt_overrides/
       └── get_custom_schema.sql  # Controls schema naming based on target
+.cursor/         # Cursor AI rules for dbt and SQL best practices
+  └── rules/
+      ├── dbt-best-practices.mdc  # dbt patterns and configurations
+      └── sql-style-guide.mdc     # SQL formatting standards
 profiles.yml     # Connection profile (uses .env variables)
 dbt_project.yml  # Project configuration
 .env             # Your credentials (gitignored)
