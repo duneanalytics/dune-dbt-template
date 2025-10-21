@@ -4,6 +4,8 @@ A dbt project template for Dune using Trino and uv for Python package management
 
 > **Using this as a template?** See [SETUP_FOR_NEW_TEAMS.md](SETUP_FOR_NEW_TEAMS.md) for first-time setup instructions.
 
+[![Latest Release](https://img.shields.io/github/v/release/duneanalytics/dune-dbt-template?label=latest%20release)](https://github.com/duneanalytics/dune-dbt-template/releases) | [CHANGELOG](CHANGELOG.md)
+
 ## 📚 Documentation
 
 **New to this repo?** See the [docs/](docs/) directory for complete guides:
