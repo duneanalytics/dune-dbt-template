@@ -1,8 +1,9 @@
 name: dbt prod orchestration
 
 on:
-  schedule:
-    - cron: '0 * * * *'  # Run every hour at minute 0
+  # schedule:
+  #   - cron: '0 * * * *'  # Run every hour at minute 0
+  # NOTE: Schedule is disabled by default. Uncomment when ready to enable hourly production runs.
   workflow_dispatch:  # Allow manual triggers
 
 jobs:
