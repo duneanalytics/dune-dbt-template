@@ -71,6 +71,29 @@ To use prod target:
 dbt run --target prod
 ```
 
+## Staying Updated with Template Changes
+
+If this repo was created from the dune-dbt-template, you can pull in updates:
+
+**Set up upstream (one-time):**
+```bash
+git remote add upstream https://github.com/YOUR_ORG/dune-dbt-template.git
+git fetch upstream
+```
+
+**Pull in template updates:**
+```bash
+git fetch upstream
+git checkout main
+git merge upstream/main  # Review and resolve conflicts as needed
+git push origin main
+```
+
+**Best practices:**
+- Review changes before merging to ensure they align with your project
+- Test thoroughly after merging template updates
+- Consider selective merging if only certain updates are needed
+
 ## Next Steps
 
 - Read [Development Workflow](development-workflow.md) to learn the recommended process

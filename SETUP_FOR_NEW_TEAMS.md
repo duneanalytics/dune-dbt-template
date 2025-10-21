@@ -164,6 +164,32 @@ If schema errors:
 - Verify `DUNE_TEAM_NAME` variable is set
 - Check that your Dune team name matches exactly
 
+## 7. Set Up Upstream Tracking (Recommended)
+
+To receive template updates and improvements, set up upstream tracking to the original template repository.
+
+**Add upstream remote:**
+```bash
+git remote add upstream https://github.com/YOUR_ORG/dune-dbt-template.git
+git fetch upstream
+```
+
+**To pull in template updates later:**
+```bash
+git fetch upstream
+git checkout main
+git merge upstream/main
+# Resolve any conflicts
+git push origin main
+```
+
+**Why do this?**
+- ✅ Get bug fixes and improvements from the template
+- ✅ Receive new features and optimizations
+- ✅ Stay aligned with best practices updates
+
+**Note:** Only merge updates that make sense for your project. Review changes carefully before merging.
+
 ## Next Steps
 
 Once setup is complete:
