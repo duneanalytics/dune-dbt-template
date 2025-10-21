@@ -134,6 +134,25 @@ Verify:
 - ✅ Models run successfully
 - ✅ Tests pass
 
+## 6. Enable Production Schedule (Optional)
+
+The production workflow is **disabled by default** to prevent automatic runs on new repos.
+
+**When you're ready for hourly production runs:**
+
+Edit `.github/workflows/dbt_prod.yml`:
+```yaml
+on:
+  schedule:
+    - cron: '0 * * * *'  # Uncomment these lines
+  workflow_dispatch:
+```
+
+**Before enabling:**
+- ✅ CI tests are passing
+- ✅ You've tested production runs manually (Actions → dbt prod orchestration → Run workflow)
+- ✅ You understand this will run every hour and consume GitHub Actions minutes
+
 ## Troubleshooting
 
 If CI fails with "Secret not found":

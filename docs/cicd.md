@@ -53,9 +53,11 @@ dbt test --select modified_model
 
 ## Production Workflow
 
-**Trigger:** Hourly (on schedule) or manual  
+**Trigger:** Manual (schedule disabled by default)  
 **File:** `.github/workflows/dbt_prod.yml`  
 **Branch:** `main` only
+
+⚠️ **Note:** The hourly schedule is **disabled by default** in the template. Teams must uncomment the schedule in the workflow file when ready to enable automatic hourly runs.
 
 ### What It Does
 
@@ -119,7 +121,7 @@ Runs when:
 ### Production Workflow
 
 Runs when:
-- Hourly (cron: `'0 * * * *'`)
+- Hourly (cron: `'0 * * * *'`) - **disabled by default, must be uncommented**
 - Manual trigger via GitHub Actions UI
 
 ## Troubleshooting CI Failures
