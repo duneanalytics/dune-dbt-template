@@ -1,4 +1,4 @@
-# dune-dbt-template
+# dune-dbt-template 
 
 A dbt project template for Dune using Trino and uv for Python package management.
 
