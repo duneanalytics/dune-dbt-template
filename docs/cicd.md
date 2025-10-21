@@ -2,6 +2,12 @@
 
 Continuous integration and deployment via GitHub Actions.
 
+## GitHub-Hosted Runners
+
+This template uses **GitHub-hosted runners** (`ubuntu-latest`) to execute CI/CD workflows. 
+
+GitHub provides and manages these runners - no infrastructure setup required on your end.
+
 ## Pull Request Workflow (CI)
 
 **Trigger:** Every pull request  
