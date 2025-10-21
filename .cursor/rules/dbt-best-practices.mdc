@@ -1,0 +1,899 @@
+---
+alwaysApply: true
+---
+
+# dbt Best Practices
+
+## Repository-Specific Configurations (Dune dbt Template)
+
+These are **critical** configurations specific to this Dune dbt repository. Follow these rules for all models.
+
+### Schema Configuration
+- **NEVER declare `schema` property in model configs** (either in-model `config()` or in `dbt_project.yml`)
+- Schema names are automatically handled by the custom `generate_schema_name` macro in `macros/dune_dbt_overrides/get_custom_schema.sql`
+- Schema naming logic:
+  - **Production** (`--target prod`): Uses `target.schema` from `profiles.yml` (set via `DUNE_TEAM_NAME` env var)
+  - **Dev with suffix** (`--target dev` + `DEV_SCHEMA_SUFFIX` env var): `<team_name>__tmp_<suffix>`
+  - **Dev without suffix** (`--target dev`, no env var): `<team_name>__tmp_`
+- In CI workflows, `DEV_SCHEMA_SUFFIX` is automatically set to the PR number
+
+### Alias Configuration
+- **ALWAYS provide an `alias` config for every model**
+- **Preference**: Declare alias in the model file itself using `{{ config(alias = 'model_name') }}` for transparency
+- **Backup**: Can be assigned in `dbt_project.yml` if needed
+- **Why**: Alias is how we differentiate tables/views since schema names are controlled by the custom macro
+- Example:
+  ```sql
+  {{ config(
+      alias = 'my_model_name'
+      , materialized = 'view'
+  ) }}
+  ```
+
+### Table Configuration
+- **Required for all tables**: `on_table_exists: replace` is set globally in `dbt_project.yml`
+- Do not override this setting
+- **Why**: Dune's Hive metastore does **not** allow table renames, so standard dbt table operations (drop temp, create temp, rename existing, rename temp to final, drop backup) won't work
+- File format defaults to `delta` (Dune Hive metastore default)
+- Do not attempt to set `file_format` or `format` config - dbt fails on this property
+
+### Source Configuration
+- **Custom source macro override**: The `source()` macro automatically sets `database='delta_prod'` for all sources
+- Macro location: `macros/dune_dbt_overrides/source.sql`
+- Use sources normally with `{{ source('source_name', 'table_name') }}`
+- **To override the default database**: Pass the `database` parameter directly in the source call
+  - Example: `{{ source('source_name', 'table_name', database='custom_database') }}`
+
+### Environment Variables
+- **Required**: `DUNE_API_KEY` - Your Dune API key for authentication
+- **Required**: `DUNE_TEAM_NAME` - Your team name, used as the base schema name (defaults to 'dune' if not set)
+- **Optional**: `DEV_SCHEMA_SUFFIX` - Suffix for dev schema names (automatically set to PR number in CI)
+
+### Connection Configuration (profiles.yml)
+- **Do not change** `user: dune` - User is always 'dune'
+- **Do not change** `catalog: dune` - Catalog is always 'dune'
+- **Do not change** `host: dune-api-trino.dune.com` - Fixed Dune API endpoint
+- Authentication via `DUNE_API_KEY` environment variable
+- Connection type: Trino with LDAP method
+- Session properties: `transformations: true` is required
+- Timezone: UTC
+
+## Development Workflow
+
+Follow this recommended workflow when developing dbt models for Dune.
+
+### 1. Start in the Dune App
+
+**Always begin with a working query in the Dune web application before creating a dbt model.**
+
+- Write and test your query logic in Dune's query editor first
+- Ensure the data output matches your expectations
+- Test data quality and edge cases
+- Iterate quickly in the Dune app to validate your logic
+- **Why**: The Dune app provides immediate feedback and is easier to debug than dbt runs
+
+### 2. Convert Query to dbt Model
+
+Once your query is working correctly, convert it to a dbt model.
+
+**Choose the right materialization based on your use case:**
+
+- **`view`** - For quick-running queries (< 1-2 minutes)
+  - No data is stored, query runs each time the view is queried
+  - Best for: Lightweight transformations, filters, joins on small datasets
+  
+- **`table`** - For full snapshot rebuilds
+  - Entire table is recreated on each run
+  - Best for: Medium-sized datasets, aggregations that need full refresh, dimension tables
+  
+- **`incremental`** - For large tables with time-based or event-based data
+  - Only adds/updates recent rows instead of rebuilding entire table
+  - Best for: Large fact tables, transaction logs, event streams
+  - Requires careful configuration (see Incremental Model Configuration section)
+
+**Always use `source()` and `ref()` Jinja functions:**
+```sql
+-- ✅ GOOD: Using source() and ref() for lineage
+select
+	t.block_time
+	, t.hash
+	, t.from
+	, t.to
+	, u.symbol
+from
+	{{ source('ethereum', 'transactions') }} as t
+left join {{ ref('stg_user_addresses') }} as u
+	on t.from = u.address
+```
+
+**Why**: Using `source()` and `ref()` enables:
+- Automatic dependency resolution and execution order
+- Complete data lineage tracking
+- Impact analysis when models change
+
+### 3. Use Short Date Filters During Development
+
+**When developing with large datasets, always start with restricted date ranges to iterate faster.**
+
+- Use short date filters (e.g., last 1-3 days) during initial development
+- This speeds up iterations and reduces credit consumption
+- For incremental models, use the `is_incremental()` conditional to force short filters on full refreshes
+
+**Example (incremental model with dev-friendly date filter):**
+```sql
+{{ config(
+    alias = 'ethereum_dex_trades'
+    , materialized = 'incremental'
+    , incremental_strategy = 'merge'
+    , unique_key = ['block_date', 'tx_hash', 'evt_index']
+) }}
+
+select
+	block_date
+	, block_time
+	, tx_hash
+	, evt_index
+	, trader
+	, token_in
+	, token_out
+	, amount_usd
+from
+	{{ source('dex', 'trades') }}
+where
+	blockchain = 'ethereum'
+	{%- if is_incremental() %}
+	and block_date >= now() - interval '1' day  -- Incremental: only last day
+	{%- else %}
+	and block_date >= now() - interval '3' day  -- Full refresh: only last 3 days for dev
+	{%- endif %}
+```
+
+**Example (table model with dev date filter):**
+```sql
+{{ config(
+    alias = 'user_transaction_summary'
+    , materialized = 'table'
+) }}
+
+select
+	from_address as user_address
+	, count(*) as transaction_count
+	, sum(value) as total_value
+from
+	{{ source('ethereum', 'transactions') }}
+where
+	block_date >= now() - interval '7' day  -- Limit to last week during development
+group by
+	from_address
+```
+
+### 4. Test End-to-End Without Issues
+
+**Before expanding date ranges, ensure your model runs successfully end-to-end:**
+
+- Run `dbt run --select model_name` to test the model
+- Verify the output data quality
+- Check for errors in logs
+- Test downstream models that depend on this model
+- Validate incremental logic (if applicable) by running multiple times
+
+### 5. Expand Date Ranges (When Ready)
+
+**Only remove or expand date filters when you're confident in the model and ready to consume credits.**
+
+⚠️ **Warning**: Running queries on full historical datasets can consume significant credits. Only do this when necessary.
+
+**When to expand:**
+- ✅ Model logic is tested and working correctly
+- ✅ You've verified data quality on the limited dataset
+- ✅ You understand the credit cost implications
+- ✅ You actually need the full historical data (not just for testing)
+
+**How to expand:**
+- Remove the hardcoded date filter entirely, OR
+- Extend the date range to the full historical period needed
+- For incremental models, the `is_incremental()` conditional will naturally handle ongoing incremental runs
+
+**Example (production-ready incremental model):**
+```sql
+{{ config(
+    alias = 'ethereum_dex_trades'
+    , materialized = 'incremental'
+    , incremental_strategy = 'merge'
+    , unique_key = ['block_date', 'tx_hash', 'evt_index']
+) }}
+
+select
+	block_date
+	, block_time
+	, tx_hash
+	, evt_index
+	, trader
+	, token_in
+	, token_out
+	, amount_usd
+from
+	{{ source('dex', 'trades') }}
+where
+	blockchain = 'ethereum'
+	{%- if is_incremental() %}
+	and block_date >= now() - interval '1' day  -- Incremental: only process recent data
+	{%- else %}
+	and block_date >= timestamp '2020-01-01'  -- Full refresh: process all historical data
+	{%- endif %}
+```
+
+## General dbt Best Practices
+
+### Materialization Configuration
+- **ALWAYS explicitly declare `materialized` property in every model config**
+- Do this for transparency, even if using the "default" from `dbt_project.yml`
+- Available materializations:
+  - `view` - Default fallback in `dbt_project.yml`
+  - `table` - For static/full refresh tables
+  - `incremental` - For incremental models (requires `incremental_strategy`)
+- Example:
+  ```sql
+  {{ config(
+      alias = 'my_model'
+      , materialized = 'table'
+  ) }}
+  ```
+
+### View Security Configuration
+- **Required for all views**: `view_security: invoker` is set globally in `dbt_project.yml`
+- Do not override this setting in model configs
+- This is a required security setting for Dune views
+
+### Certificate Validation
+- `require_certificate_validation: true` is set globally in `dbt_project.yml` flags
+- This is required for security - do not disable
+
+### Incremental Model Configuration
+- **ALWAYS specify `incremental_strategy`** when using `materialized = 'incremental'`
+- Available strategies:
+  - `merge` - Update/insert based on unique key
+  - `delete+insert` - Delete matching rows, then insert
+  - `append` - Append-only (use with deduplication logic)
+- For `merge` and `delete+insert` strategies:
+  - **ALWAYS specify `unique_key`** (can be single column or list of columns)
+
+#### NULL Handling in Unique Keys (⚠️ Critical)
+
+**Unique key columns MUST NOT contain NULL values.**
+
+- **Why**: In Trino, NULL values in key columns will cause merge/delete lookups to **fail to find matches**
+- **Result**: Failed lookups lead to duplicates being inserted instead of updated/deleted
+- **Solution Options**:
+  1. **Ensure key columns are NOT NULL** - Filter out or coalesce NULL values before selecting
+  2. **Generate a surrogate key** - Use `dbt_utils.generate_surrogate_key()` if columns may contain NULLs
+
+**Example (handling potential NULLs):**
+```sql
+{{ config(
+    alias = 'transactions_summary'
+    , materialized = 'incremental'
+    , incremental_strategy = 'merge'
+    , unique_key = 'transaction_key'
+) }}
+
+select
+    -- Generate surrogate key from columns that might have NULLs
+    {{ dbt_utils.generate_surrogate_key(['block_number', 'transaction_index']) }} as transaction_key
+    , block_number
+    , transaction_index
+    , transaction_hash
+    , sum(value) as total_value
+from
+    {{ source('ethereum', 'transactions') }}
+where
+    block_date >= now() - interval '1' day
+group by
+    block_number
+    , transaction_index
+    , transaction_hash
+```
+
+**Example (ensuring NOT NULL):**
+```sql
+{{ config(
+    alias = 'user_daily_activity'
+    , materialized = 'incremental'
+    , incremental_strategy = 'merge'
+    , unique_key = ['user_address', 'activity_date']
+) }}
+
+select
+    user_address
+    , activity_date
+    , count(*) as activity_count
+from
+    {{ source('ethereum', 'transactions') }}
+where
+    user_address is not null  -- ✅ Ensure key column is NOT NULL
+    and block_date is not null  -- ✅ Ensure key column is NOT NULL
+    and block_date >= now() - interval '1' day
+group by
+    user_address
+    , activity_date
+```
+
+#### Using `incremental_predicates` (⚠️ Use with Caution)
+
+**When to use `incremental_predicates`:**
+- Only for **time-series or event-based data** where you ONLY need to check recent records in the target table
+- When data is naturally partitioned by time and historical lookups are NOT required
+- Examples: daily aggregations, recent transaction summaries, metrics over rolling windows
+
+**When NOT to use `incremental_predicates`:**
+- ⚠️ **DO NOT use** when you need to check against **full history** in the target table
+- ⚠️ **DO NOT use** for reference/dimension tables where events can occur at any time
+- Example: **DEX pool creation events** - pools can be created at ANY point in history, so you must check against ALL existing pools in the target table, not just recent ones
+- If you filter to last N days, you'll miss historical pools and create duplicates
+
+**Before using `incremental_predicates`:**
+- ✅ Confirm you deeply understand your data and its time-based characteristics
+- ✅ Verify that limiting the target table lookup won't cause data integrity issues
+- ✅ Ask yourself: "Do I need to check against the entire history, or only recent records?"
+- ✅ When in doubt, **leave it out** - it's safer to scan the full target table than to introduce duplicates or data quality issues
+
+**Example (time-series data that's safe to use):**
+```sql
+{{ config(
+    alias = 'daily_transaction_metrics'
+    , materialized = 'incremental'
+    , incremental_strategy = 'merge'
+    , unique_key = ['block_date', 'user_address']
+    , incremental_predicates = ["DBT_INTERNAL_DEST.block_date >= now() - interval '7' day"]
+) }}
+-- Safe because: we only care about recent dates, and the unique_key is based on date
+```
+
+**Example (DO NOT use - requires full history):**
+```sql
+{{ config(
+    alias = 'dex_pool_first_seen'
+    , materialized = 'incremental'
+    , incremental_strategy = 'merge'
+    , unique_key = ['pool_address']
+    -- ❌ DO NOT add incremental_predicates here
+    -- Pools can be created at any time in history
+    -- We need to check ALL existing pools, not just recent ones
+) }}
+```
+
+## Model Organization and Lineage Design
+
+These are **recommended patterns** for organizing your dbt models and designing data lineage. While not required, following these patterns will create a cleaner, more maintainable project.
+
+### One Model Per Protocol, Per Version, Per Blockchain
+- Create granular models at the protocol level for maximum flexibility
+- Separate models by protocol (Uniswap, Curve, Balancer)
+- Separate models by version (Uniswap V2, V3)
+- Separate models by blockchain (Ethereum, Arbitrum, Polygon)
+- **Benefits**: Clear lineage, easy to add/remove components, simple to debug and test
+
+### Simple Union Model Across Protocol Versions
+- Create version-level union models to combine different versions of the same protocol
+- Union models should be simple: just combine versions with minimal transformation
+- Add a `version` column to distinguish between versions
+- Keep protocol-specific logic at the individual version level
+
+### Simple Union Model Across Chains
+- Create chain-level union models to combine the same protocol across different blockchains
+- Union models should be simple: just combine chains with minimal transformation
+- Add a `blockchain` column to distinguish between chains
+- Keep chain-specific logic at the individual chain level
+
+### Save Metadata Enhancements for Downstream
+- Keep upstream models (staging/intermediate) simple and raw
+- Add metadata, lookups, and enrichments in downstream models
+- **Benefits**: Easier to change enrichment logic without rebuilding upstream models, efficient rebuilds
+
+## Code Reusability
+
+### When to Use Macros
+
+Use macros to avoid code duplication when patterns repeat across your project.
+
+**Common use cases:**
+
+- **Logic repeats across many blockchains** - When the same transformation logic applies to multiple chains, create a macro instead of duplicating code
+  
+- **Protocols commonly forked** - When protocols are forked across different projects or chains with minimal changes
+  - Example: Uniswap V2 forks (SushiSwap, PancakeSwap), Compound forks, ERC20 token standards
+  - Create a macro to handle the common logic and parameterize the differences
+
+**Benefits of using macros:**
+- Single source of truth for repeated logic
+- Easier to maintain and update logic across multiple models
+- Reduces code duplication and potential for errors
+
+## Data Quality
+
+### Schema Configuration (schema.yml)
+
+**All models MUST be declared in their corresponding `schema.yml` file.**
+
+- Every model should have an entry in a schema.yml file (e.g., `models/my_folder/schema.yml`)
+- At minimum, include the model name in the schema file
+- Additional properties (descriptions, tags, etc.) are **optional** and up to your team's preferences
+
+**Example (minimal schema.yml):**
+```yaml
+version: 2
+
+models:
+  - name: my_model_name
+```
+
+**Example (with optional metadata):**
+```yaml
+version: 2
+
+models:
+  - name: my_model_name
+    description: "Optional description of what this model does"
+    tags: ['optional_tag']
+    columns:
+      - name: column_name
+        description: "Optional column description"
+```
+
+### Testing Strategy
+
+#### Required Tests for Incremental Models
+
+**If your model uses unique keys (incremental materialization), you MUST add tests:**
+
+1. **`dbt_utils.unique_combination_of_columns`** test for the unique key columns
+2. **`not_null`** test for each column in the unique key
+
+**Why**: These tests ensure data integrity and catch issues with NULL values or duplicate keys that would cause incremental logic to fail.
+
+**Example (incremental model with composite unique key):**
+
+Model file (`ethereum_daily_transactions.sql`):
+```sql
+{{ config(
+    alias = 'ethereum_daily_transactions'
+    , materialized = 'incremental'
+    , incremental_strategy = 'merge'
+    , unique_key = ['block_date', 'transaction_hash']
+) }}
+
+select
+	block_date
+	, transaction_hash
+	, from_address
+	, to_address
+	, value
+from
+	{{ source('ethereum', 'transactions') }}
+where
+	block_date >= now() - interval '1' day
+```
+
+Schema file (`schema.yml`):
+```yaml
+version: 2
+
+models:
+  - name: ethereum_daily_transactions
+    description: "Daily Ethereum transactions"
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - block_date
+            - transaction_hash
+    columns:
+      - name: block_date
+        tests:
+          - not_null
+      - name: transaction_hash
+        tests:
+          - not_null
+      - name: from_address
+      - name: to_address
+      - name: value
+```
+
+**Example (incremental model with single unique key):**
+
+Model file (`user_balances.sql`):
+```sql
+{{ config(
+    alias = 'user_balances'
+    , materialized = 'incremental'
+    , incremental_strategy = 'merge'
+    , unique_key = 'user_address'
+) }}
+
+select
+	user_address
+	, sum(balance) as total_balance
+from
+	{{ ref('stg_balances') }}
+group by
+	user_address
+```
+
+Schema file (`schema.yml`):
+```yaml
+version: 2
+
+models:
+  - name: user_balances
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - user_address
+    columns:
+      - name: user_address
+        tests:
+          - not_null
+      - name: total_balance
+```
+
+#### Optional Tests
+
+Additional tests are available and encouraged based on your data quality requirements:
+
+- `unique` - For single-column unique constraints
+- `accepted_values` - For columns with known valid values
+- `relationships` - For foreign key constraints
+- Custom data tests in `tests/` directory
+
+### Documentation
+
+**Documentation is optional but recommended.**
+
+- Model descriptions help team members understand purpose and usage
+- Column descriptions clarify data definitions
+- Tags help organize and select models (`dbt run --select tag:daily`)
+- Meta fields can store custom metadata
+
+**Level of documentation is up to your team:**
+- Minimal: Just model names in schema.yml (required)
+- Standard: Add model descriptions
+- Detailed: Include column descriptions, tags, and meta fields
+
+## Performance Optimization
+
+### DuneSQL Data Types
+
+- Use `UINT256` and `INT256` for large numbers
+- Use `VARBINARY` for binary data (addresses, hashes)
+- Use hex literals without quotes: `0x039e2fb66102314ce7b64ce5ce3e5183bc94ad38` not `'0x039e2fb66102314ce7b64ce5ce3e5183bc94ad38'`
+- Use `DATE '2025-10-08'` for block_date (DATE type), `TIMESTAMP '2025-10-08'` for block_time (TIMESTAMP type)
+
+### DuneSQL Query Optimization
+
+These best practices are specific to DuneSQL (Trino fork) and Dune's architecture. Following these guidelines will improve query performance and reduce execution costs.
+
+Reference: [DuneSQL Writing Efficient Queries](https://docs.dune.com/query-engine/writing-efficient-queries)
+
+#### 1. Leverage Time-Based Filtering
+
+**Always filter by time-based partition columns** (`block_date`, `block_time`, `evt_block_time`, etc.) to enable partition pruning.
+
+- Check the Dune data explorer to see which fields are used as partition columns
+- **Cross-chain tables** (like `tokens.transfers`, `dex.trades`, `erc20_evt_transfer`) are partitioned by BOTH `blockchain` AND time
+- Always specify both filters for cross-chain tables to dramatically reduce data scanned
+
+**Examples:**
+```sql
+-- ✅ GOOD: Filters by block_date for partition pruning
+select
+	t.hash
+	, t.from
+	, t.to
+	, t.value
+from
+	base.transactions as t
+where
+	t.block_date >= timestamp '2025-01-01'
+	and t.block_date < timestamp '2025-02-01'
+	and t.to = 0x827922686190790b37229fd06084350e74485b72
+
+-- ✅ EXCELLENT: Filters by blockchain AND time for cross-chain tables
+select
+	d.block_time
+	, d.tx_hash
+	, d.from
+	, d.to
+	, d.amount_usd
+from
+	dex.trades as d
+where
+	d.blockchain = 'ethereum'
+	and d.block_time >= timestamp '2024-10-01'
+	and d.block_time < timestamp '2024-11-01'
+```
+
+#### 2. Select Only Required Columns
+
+**Never use `SELECT *`** on large tables. Dune's columnar storage makes column selection especially effective.
+
+- Specify only the columns you need in your SELECT clause
+- This is critical for transaction, log, and trace tables
+- Reduces data transfer and memory usage
+
+**Examples:**
+```sql
+-- ❌ BAD: Selecting all columns unnecessarily
+select
+	*
+from
+	ethereum.transactions as t
+where
+	t.block_date >= timestamp '2024-10-01'
+
+-- ✅ GOOD: Select only needed columns
+select
+	t.hash
+	, t.from
+	, t.to
+	, t.value
+from
+	ethereum.transactions as t
+where
+	t.block_date >= timestamp '2024-10-01'
+```
+
+#### 3. Use Efficient JOIN Strategies
+
+**Put time filters in both the ON clause AND the WHERE clause** when joining on partition columns.
+
+- Join on indexed columns when possible (e.g., `tx_hash`, `block_number`, partition columns)
+- Include partition column filters in join conditions to enable partition pruning on both sides
+- Filter early in CTEs before joins when possible
+
+**Examples:**
+```sql
+-- ✅ GOOD: Efficient join with time filter in ON clause and WHERE clause
+select
+	t.hash
+	, t.block_time
+	, l.topic0
+	, l.data
+from
+	ethereum.transactions as t
+inner join ethereum.logs as l
+	on t.hash = l.tx_hash
+	and t.block_date = l.block_date
+	and l.block_date >= timestamp '2024-10-01'
+	and l.block_date < timestamp '2024-10-02'
+where
+	t.to = 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
+	and t.block_date >= timestamp '2024-10-01'
+	and t.block_date < timestamp '2024-10-02'
+```
+
+#### 4. Use CTEs for Readability and Performance
+
+Break complex queries into **Common Table Expressions (CTEs)** for better readability and optimization.
+
+- CTEs help the query optimizer understand your intent
+- Use CTEs to filter data early before joins
+- Build complex logic incrementally in separate CTEs
+
+**Example:**
+```sql
+with daily_volumes as (
+	select
+		d.block_month as trade_date
+		, sum(d.amount_usd) as daily_volume
+	from
+		dex.trades as d
+	where
+		d.blockchain = 'ethereum'
+		and d.block_month >= timestamp '2024-09-01'
+		and d.block_month < timestamp '2024-10-01'
+	group by
+		d.block_month
+)
+, volume_metrics as (
+	select
+		dv.trade_date
+		, dv.daily_volume
+		, avg(dv.daily_volume) over (
+			order by dv.trade_date
+			rows between 6 preceding and current row
+		) as rolling_7day_avg
+	from
+		daily_volumes as dv
+)
+
+select
+	vm.trade_date
+	, vm.daily_volume
+	, vm.rolling_7day_avg
+from
+	volume_metrics as vm
+order by
+	vm.trade_date desc
+```
+
+#### 5. Avoid Unnecessary Subqueries
+
+**Use window functions instead of correlated subqueries** when calculating aggregates over a range.
+
+- Correlated subqueries execute once per row and are expensive
+- Window functions are optimized and execute once
+
+**Examples:**
+```sql
+-- ❌ BAD: Inefficient correlated subquery
+select
+	b1.number
+	, b1.gas_used
+	, (
+		select
+			avg(b2.gas_used)
+		from
+			ethereum.blocks as b2
+		where
+			b2.time >= timestamp '2024-10-01'
+			and b2.number <= b1.number
+			and b2.number > b1.number - 100
+	) as avg_100_blocks
+from
+	ethereum.blocks as b1
+where
+	b1.time >= timestamp '2024-10-01'
+
+-- ✅ GOOD: Use window functions instead
+with gas_used as (
+	select
+		b.number
+		, b.gas_used
+		, avg(b.gas_used) over (
+			order by b.time
+			rows between 99 preceding and current row
+		) as avg_100_blocks
+	from
+		ethereum.blocks as b
+	where
+		b.time >= timestamp '2024-10-01'
+)
+
+select
+	g.number
+	, g.gas_used
+	, g.avg_100_blocks
+from
+	gas_used as g
+```
+
+#### 6. Use LIMIT for Exploratory Queries
+
+**Always use LIMIT** when you don't need all results, especially during development.
+
+- Add LIMIT to reduce result set size during testing
+- Remove or increase LIMIT only when you need the full dataset
+- Especially important with ORDER BY clauses
+
+**Example:**
+```sql
+-- ✅ GOOD: Using LIMIT for large result sets
+select
+	t.hash
+	, t.block_time
+	, t.gas_used
+	, t.gas_price
+from
+	ethereum.transactions as t
+where
+	t.block_time >= timestamp '2024-10-01'
+order by
+	t.gas_price desc
+limit 1000
+```
+
+#### 7. Use Curated Data Tables
+
+**Leverage Dune's curated tables** (spells/abstractions) rather than raw logs and traces.
+
+- Tables like `dex.trades`, `tokens.transfers`, `nft.trades` are pre-computed and optimized
+- Curated tables are maintained by Dune and the community
+- Only decode raw logs when curated tables don't meet your needs
+- Check the Dune data catalog for available curated tables
+
+#### 8. ORDER BY Considerations
+
+**Never use ORDER BY without LIMIT** on large result sets.
+
+- Sorting is expensive for large datasets
+- If you need sorted output for visualizations, let the visualization layer handle sorting
+- Only use ORDER BY + LIMIT when you need top-N results
+
+**Examples:**
+```sql
+-- ❌ BAD: Ordering large result set without limit
+select
+	t.hash
+	, t.gas_price
+from
+	ethereum.transactions as t
+where
+	t.block_time >= timestamp '2024-10-01'
+order by
+	t.gas_price desc
+
+-- ✅ GOOD: Add LIMIT when ordering
+select
+	t.hash
+	, t.gas_price
+from
+	ethereum.transactions as t
+where
+	t.block_time >= timestamp '2024-10-01'
+order by
+	t.gas_price desc
+limit 10000
+```
+
+### Partitioning
+
+#### When to Use Partitioning (⚠️ Ask First)
+
+**Partitioning is NOT always beneficial. Use it carefully.**
+
+**Guidelines for Partitioning:**
+- ⚠️ **Only partition if the table is large** - Each partition should contain at least ~1 million rows or more
+- **Common use cases**: Time-based partitions for large event tables
+  - Example: `partition_by=['block_month']` for monthly transfers, swaps, liquidity events
+  - Example: `partition_by=['evt_block_month']` for decoded event logs
+- **Small tables**: If a table is smaller, partitioning can **hurt performance** more than help
+  - Partition overhead (metadata, file management) outweighs benefits
+  - Query planning becomes more complex without meaningful data reduction
+
+**Before adding a partition:**
+- ✅ Estimate the table size - Will each partition have 1M+ rows?
+- ✅ Consider query patterns - Do queries typically filter by this column?
+- ✅ When in doubt, **start without partitioning** - You can add it later if needed
+
+#### Partition Columns in Unique Keys (⚠️ Critical for Incremental Models)
+
+**If a table IS partitioned, ALWAYS include the partition column(s) in the `unique_key` list.**
+
+- **Why**: Including partition columns in unique keys dramatically improves join performance during merge/delete lookups
+- **How it helps**: Trino can prune partitions during the lookup, scanning only relevant partitions instead of the entire target table
+- **Performance impact**: Can reduce lookup time from minutes to seconds on large tables
+
+**Example (partitioned incremental model):**
+```sql
+{{ config(
+    alias = 'monthly_dex_swaps'
+    , materialized = 'incremental'
+    , incremental_strategy = 'merge'
+    , unique_key = ['block_month', 'transaction_hash', 'evt_index']  -- ✅ block_month is partition column AND in unique_key
+    , partition_by = ['block_month']
+) }}
+
+select
+    date_trunc('month', block_time) as block_month
+    , transaction_hash
+    , evt_index
+    , token_in
+    , token_out
+    , amount_in
+    , amount_out
+from
+    {{ source('uniswap_v3_ethereum', 'swap_events') }}
+where
+    block_time >= date_trunc('month', now()) - interval '1' month
+```
+
+**Example (DO NOT do this):**
+```sql
+{{ config(
+    alias = 'monthly_dex_swaps'
+    , materialized = 'incremental'
+    , incremental_strategy = 'merge'
+    , unique_key = ['transaction_hash', 'evt_index']  -- ❌ Missing block_month from unique_key
+    , partition_by = ['block_month']
+) }}
+-- This will cause full table scans on the target during merge lookups!
+```

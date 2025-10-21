@@ -23,11 +23,13 @@ logs/
 # IDE
 .vscode/
 .idea/
-.cursor/
 *.swp
 *.swo
 *~
 .DS_Store
+
+# Cursor - SQL style guide is personal preference, keep gitignored
+.cursor/rules/sql-style-guide.mdc
 
 # Environment
 .env
