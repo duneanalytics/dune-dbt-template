@@ -14,8 +14,10 @@ Settings → Branches → Add branch protection rule for `main`:
 ### Actions Permissions
 
 Settings → Actions → General:
-- ✅ Allow all actions and reusable workflows
+- ✅ **Allow all actions and reusable workflows** (required for workflows to run)
 - OR: Allow specific actions (if your org requires it)
+
+**Note:** This template uses GitHub-hosted runners (`ubuntu-latest`). GitHub provides and manages these automatically.
 
 ## 2. GitHub Secrets & Variables
 
