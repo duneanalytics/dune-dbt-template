@@ -87,10 +87,9 @@ This repo includes **optional** Cursor AI guidelines in `.cursor/rules/`:
   - Repository configs, development workflow, incremental models
   - Model organization, DuneSQL optimization, data quality
 
-- **`sql-style-guide.mdc`** - SQL formatting preferences
-  - Leading commas, tab indentation, lowercase keywords
-
 These are basic guidelines, not requirements. Cursor AI applies them automatically when available.
+
+**Note:** SQL formatting preferences (sql-style-guide.mdc) are kept local and not committed to the repo.
 
 ## Querying Models on Dune App/API
 
@@ -197,10 +196,9 @@ models/          # dbt models and templates
 macros/          # Custom Dune macros (schema overrides, sources)
   └── dune_dbt_overrides/
       └── get_custom_schema.sql  # Controls schema naming based on target
-.cursor/         # Cursor AI rules for dbt and SQL best practices
+.cursor/         # Cursor AI rules (dbt-best-practices.mdc)
   └── rules/
-      ├── dbt-best-practices.mdc  # dbt patterns and configurations
-      └── sql-style-guide.mdc     # SQL formatting standards
+      └── dbt-best-practices.mdc  # dbt patterns and configurations
 profiles.yml     # Connection profile (uses .env variables)
 dbt_project.yml  # Project configuration
 .env             # Your credentials (gitignored)
