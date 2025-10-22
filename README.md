@@ -19,30 +19,57 @@ A dbt project template for Dune using Trino and uv for Python package management
 
 ## Quick Setup
 
-### 1. Configure Credentials
-
-```bash
-cp .env.example .env
-# Edit .env and set:
-#   DUNE_API_KEY=your_api_key
-#   DUNE_TEAM_NAME=your_team_name
-```
-
-### 2. Install Dependencies
+### 1. Install Dependencies
 
 ```bash
 uv sync
-source .venv/bin/activate
 ```
 
-### 3. Load Environment and Run
+### 2. Set Environment Variables
+
+Choose one method:
+
+**Method A: Add to shell profile (persistent, recommended)**
+```bash
+# For zsh (default on macOS)
+echo 'export DUNE_API_KEY=your_api_key' >> ~/.zshrc
+echo 'export DUNE_TEAM_NAME=your_team_name' >> ~/.zshrc
+source ~/.zshrc
+
+# For bash
+echo 'export DUNE_API_KEY=your_api_key' >> ~/.bashrc
+echo 'export DUNE_TEAM_NAME=your_team_name' >> ~/.bashrc
+source ~/.bashrc
+
+# For fish
+echo 'set -x DUNE_API_KEY your_api_key' >> ~/.config/fish/config.fish
+echo 'set -x DUNE_TEAM_NAME your_team_name' >> ~/.config/fish/config.fish
+source ~/.config/fish/config.fish
+```
+
+**Method B: Export for current session (temporary)**
+```bash
+# bash/zsh
+export DUNE_API_KEY=your_api_key
+export DUNE_TEAM_NAME=your_team_name
+
+# fish
+set -x DUNE_API_KEY your_api_key
+set -x DUNE_TEAM_NAME your_team_name
+```
+
+**Method C: Inline with command (one-off)**
+```bash
+DUNE_API_KEY=your_api_key DUNE_TEAM_NAME=your_team_name uv run dbt debug
+```
+
+### 3. Install dbt Packages and Run
 
 ```bash
-set -a && source .env && set +a    # Load env vars (do this once per session)
-dbt deps                            # Install dbt packages
-dbt debug                           # Test connection
-dbt run                             # Run models (uses dev target by default)
-dbt test                            # Run tests
+uv run dbt deps      # Install dbt packages
+uv run dbt debug     # Test connection
+uv run dbt run       # Run models (uses dev target by default)
+uv run dbt test      # Run tests
 ```
 
 ### Target Configuration
@@ -55,32 +82,39 @@ This project uses dbt targets to control **schema naming**, not API endpoints:
 
 **Local development** uses `dev` target by default. To test with prod target locally:
 ```bash
-dbt run --target prod  # Use prod schema naming
+uv run dbt run --target prod  # Use prod schema naming
 ```
 
 ### Optional: Schema Suffix
 
-Add `DEV_SCHEMA_SUFFIX=your_name` to `.env` to use schema `{team}__tmp_{your_name}` instead of `{team}__tmp_`.
+Set `DEV_SCHEMA_SUFFIX=your_name` environment variable to use schema `{team}__tmp_{your_name}` instead of `{team}__tmp_`.
 
-To reload after changing `.env`:
 ```bash
-set -a && source .env && set +a
+# Add to shell profile for persistence
+echo 'export DEV_SCHEMA_SUFFIX=your_name' >> ~/.zshrc
+source ~/.zshrc
+
+# Or export for current session
+export DEV_SCHEMA_SUFFIX=your_name
+
+# Or inline with command
+DEV_SCHEMA_SUFFIX=your_name uv run dbt run
 ```
 
 To disable suffix after using it:
 ```bash
-unset DEV_SCHEMA_SUFFIX && set -a && source .env && set +a
+unset DEV_SCHEMA_SUFFIX
 ```
 
 ## Common Commands
 
 ```bash
-dbt run                             # Run all models
-dbt run --select model_name         # Run specific model
-dbt run --select model_name --full-refresh  # Full refresh incremental model
-dbt test                            # Run all tests
-dbt test --select model_name        # Test specific model
-dbt docs generate && dbt docs serve # View documentation
+uv run dbt run                             # Run all models
+uv run dbt run --select model_name         # Run specific model
+uv run dbt run --select model_name --full-refresh  # Full refresh incremental model
+uv run dbt test                            # Run all tests
+uv run dbt test --select model_name        # Test specific model
+uv run dbt docs generate && uv run dbt docs serve # View documentation
 ```
 
 ## Cursor AI Rules
@@ -99,7 +133,7 @@ These are basic guidelines, not requirements. Cursor AI applies them automatical
 
 ⚠️ **Important:** Models must be queried with the `dune` catalog prefix on Dune app/API.
 
-**Pattern:** `dune.{team_name}.{table}` (where `{team_name}` = `DUNE_TEAM_NAME` from `.env`)
+**Pattern:** `dune.{team_name}.{table}` (where `{team_name}` = `DUNE_TEAM_NAME` environment variable)
 
 ```sql
 -- ❌ Won't work
@@ -171,26 +205,30 @@ Runs hourly on main branch. Uses state comparison to only full refresh modified 
 
 ## Troubleshooting
 
-**Environment variables not loading:**
+**Environment variables not set:**
 ```bash
-set -a && source .env && set +a
-env | grep DUNE_API_KEY  # Verify it's set
+# Verify variables are set
+env | grep DUNE_API_KEY
+env | grep DUNE_TEAM_NAME
+
+# If not set, export them
+export DUNE_API_KEY=your_api_key
+export DUNE_TEAM_NAME=your_team_name
 ```
 
 **Connection errors:**
 ```bash
-dbt debug  # Test connection and check for errors
+uv run dbt debug  # Test connection and check for errors
 ```
 
 **dbt_utils not found:**
 ```bash
-dbt deps
+uv run dbt deps
 ```
 
-**Virtual environment issues:**
+**Dependency issues:**
 ```bash
 uv sync --reinstall
-source .venv/bin/activate
 ```
 
 ## Project Structure
@@ -203,9 +241,9 @@ macros/          # Custom Dune macros (schema overrides, sources)
 .cursor/         # Cursor AI rules (dbt-best-practices.mdc)
   └── rules/
       └── dbt-best-practices.mdc  # dbt patterns and configurations
-profiles.yml     # Connection profile (uses .env variables)
+profiles.yml     # Connection profile (uses env_var() to read environment variables)
 dbt_project.yml  # Project configuration
-.env             # Your credentials (gitignored)
+.env.example     # Reference for required environment variables (not sourced)
 ```
 
 ### Schema Naming Logic
