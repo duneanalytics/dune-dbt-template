@@ -23,7 +23,7 @@ uv sync
 
 Choose one method:
 
-**Method A: Add to shell profile (persistent, recommended)**
+**Method A: Add to shell profile (persistent)**
 
 ```bash
 # For zsh (default on macOS)
