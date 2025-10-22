@@ -27,7 +27,20 @@ uv sync
 
 ### 2. Set Environment Variables
 
-Choose one method:
+**Required variables:**
+
+| Variable | Description | Where to Get |
+|----------|-------------|--------------|
+| `DUNE_API_KEY` | Your Dune API key for authentication | [dune.com/settings/api](https://dune.com/settings/api) |
+| `DUNE_TEAM_NAME` | Your team name (determines schema where models are written) | Your Dune team name |
+
+**Optional variables:**
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DEV_SCHEMA_SUFFIX` | Personal dev schema suffix (creates `{team}__tmp_{suffix}`) | None (uses `{team}__tmp_`) |
+
+Choose one method to set these variables:
 
 **Method A: Add to shell profile (persistent, recommended)**
 ```bash
@@ -243,7 +256,6 @@ macros/          # Custom Dune macros (schema overrides, sources)
       └── dbt-best-practices.mdc  # dbt patterns and configurations
 profiles.yml     # Connection profile (uses env_var() to read environment variables)
 dbt_project.yml  # Project configuration
-.env.example     # Reference for required environment variables (not sourced)
 ```
 
 ### Schema Naming Logic
