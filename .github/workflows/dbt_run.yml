@@ -11,6 +11,10 @@ on:
       - 'packages.yml'
       - '.github/workflows/dbt_run.yml'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   dbt-run:
     runs-on: ubuntu-latest
@@ -24,33 +28,6 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Fetch full history for comparison
-
-      - name: Enforce branch is up-to-date with main
-        run: |
-          git fetch origin main:main
-          BEHIND=$(git rev-list --count HEAD..main)
-          AHEAD=$(git rev-list --count main..HEAD)
-          
-          echo "📊 Branch Status:"
-          echo "  - Commits ahead of main: $AHEAD"
-          echo "  - Commits behind main: $BEHIND"
-          
-          if [ $BEHIND -gt 0 ]; then
-            echo ""
-            echo "❌ ERROR: This branch is $BEHIND commit(s) behind main"
-            echo ""
-            echo "Please update your branch with the latest changes from main:"
-            echo "  git fetch origin main"
-            echo "  git merge origin/main"
-            echo "  # or: git rebase origin/main"
-            echo ""
-            echo "This ensures your changes are tested against the latest codebase."
-            exit 1
-          fi
-          
-          echo "✅ Branch is up-to-date with main"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -63,41 +40,47 @@ jobs:
       - name: Install dbt packages
         run: uv run dbt deps
 
-      - name: Checkout main branch for state comparison
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          path: main-branch
-
-      - name: Install dbt packages for main branch
-        working-directory: main-branch
-        run: uv run dbt deps
-
-      - name: Generate manifest from main branch
-        working-directory: main-branch
-        run: uv run dbt compile
-
-      - name: Copy main manifest to state directory
+      - name: Check if manifest artifact exists
+        id: check-artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p state
-          cp main-branch/target/manifest.json state/manifest.json
+          # Check if the artifact exists in the dbt_manifest_build workflow
+          if gh run list --workflow=dbt_manifest_build.yml --branch=main --status=completed --limit=1 --json databaseId | grep -q databaseId; then
+            echo "artifact_exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Manifest artifact found"
+          else
+            echo "artifact_exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️  No manifest artifact found - will trigger manifest build workflow"
+          fi
 
-      - name: Upload main branch manifest as artifact
-        uses: actions/upload-artifact@v4
+      - name: Trigger manifest build workflow if needed
+        if: steps.check-artifact.outputs.artifact_exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "🔄 Triggering dbt manifest build workflow..."
+          gh workflow run dbt_manifest_build.yml --ref main
+          
+          echo "⏳ Waiting for workflow to start..."
+          sleep 10
+          
+          echo "⏳ Waiting for manifest build to complete (this may take several minutes)..."
+          gh run watch $(gh run list --workflow=dbt_manifest_build.yml --branch=main --limit=1 --json databaseId --jq '.[0].databaseId') --exit-status
+
+      - name: Download main branch manifest
+        # Using dawidd6/action-download-artifact instead of actions/download-artifact
+        # because the official action only downloads artifacts from the same workflow run,
+        # while we need to download the manifest from a different workflow (dbt_manifest_build).
+        uses: dawidd6/action-download-artifact@v6
         with:
-          name: main-manifest
-          path: state/manifest.json
-          retention-days: 7
+          name: prod-manifest-latest
+          path: ./state
+          workflow: dbt_manifest_build.yml
+          branch: main
 
       - name: Compile feature branch models
         run: uv run dbt compile
-
-      - name: Upload feature branch manifest as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: feature-manifest
-          path: target/manifest.json
-          retention-days: 7
 
       - name: Run modified models (full refresh)
         run: uv run dbt run --select state:modified --state ./state --full-refresh

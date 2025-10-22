@@ -1,4 +1,4 @@
-name: dbt prod orchestration
+name: dbt prod incremental
 
 on:
   # schedule:
@@ -6,8 +6,12 @@ on:
   # NOTE: Schedule is disabled by default. Uncomment when ready to enable hourly production runs.
   workflow_dispatch:  # Allow manual triggers
 
+concurrency:
+  group: dbt-prod-runs  # Shared group with dbt_manifest_build.yml to prevent concurrent production runs
+  cancel-in-progress: false  # Don't cancel in-progress runs, queue instead
+
 jobs:
-  dbt-prod:
+  dbt-incremental:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     
@@ -33,56 +37,8 @@ jobs:
       - name: Install dbt packages
         run: uv run dbt deps
 
-      - name: Download previous manifest for state comparison
-        id: download-manifest
-        continue-on-error: true
-        uses: dawidd6/action-download-artifact@v6
-        with:
-          name: prod-manifest-latest
-          path: ./state
-          workflow: dbt_prod.yml
-          branch: main
-          if_no_artifact_found: warn
+      - name: Run incremental models
+        run: uv run dbt run --exclude config.materialized:view # views should only run when modified
 
-      - name: Compile current models
-        run: uv run dbt compile
-
-      - name: Determine if previous state exists
-        id: check-state
-        run: |
-          if [ -f "./state/manifest.json" ]; then
-            echo "state_exists=true" >> $GITHUB_OUTPUT
-            echo "✅ Previous manifest found - will run modified models only"
-          else
-            echo "state_exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️  No previous manifest found - will run all models (first run or artifact expired)"
-          fi
-
-      - name: Run modified models with full refresh
-        if: steps.check-state.outputs.state_exists == 'true'
-        run: uv run dbt run --select state:modified+ --state ./state --full-refresh
-
-      - name: Test modified models
-        if: steps.check-state.outputs.state_exists == 'true'
-        run: uv run dbt test --select state:modified+ --state ./state
-
-      - name: Run all models
-        run: uv run dbt run
-
-      - name: Test all models
+      - name: Test incremental models
         run: uv run dbt test
-
-      - name: Upload current manifest for next run
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: prod-manifest-latest
-          path: target/manifest.json
-          retention-days: 90
-          overwrite: true # overwrite the artifact with the latest manifest, ensures only one artifact is uploaded
-
-      - name: Send email notification on failure
-        if: failure()
-        run: |
-          echo "::error::dbt Production run failed. Check the workflow logs for details."
-          echo "GitHub will send email notifications to watchers if email notifications are enabled."
