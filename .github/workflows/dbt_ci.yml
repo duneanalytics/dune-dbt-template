@@ -52,41 +52,31 @@ jobs:
           path: ./state
           workflow: dbt_deploy.yml
           branch: main
-          if_no_artifact_found: warn
+          if_no_artifact_found: ignore  # Let our verification step handle the error with detailed message
 
-      - name: Generate manifest if not found
-        if: "!contains(steps.download-manifest.outcome, 'success')"
+      - name: Verify manifest exists
         run: |
-          echo "⚠️  No manifest found - generating from main branch..."
-          
-          # Check out main branch to a subdirectory
-          git fetch origin main
-          git worktree add main-branch origin/main
-          
-          cd main-branch
-          
-          # Install packages and compile
-          uv run dbt deps
-          uv run dbt compile
-          
-          # Copy manifest to state directory
-          cd ..
-          mkdir -p state
-          cp main-branch/target/manifest.json state/manifest.json
-          
-          # Clean up worktree
-          git worktree remove main-branch
-          
-          echo "✅ Manifest generated from main branch"
-
-      - name: Upload generated manifest as artifact
-        if: "!contains(steps.download-manifest.outcome, 'success')"
-        uses: actions/upload-artifact@v4
-        with:
-          name: prod-manifest-latest
-          path: state/manifest.json
-          retention-days: 90
-          overwrite: true
+          if [ ! -f "./state/manifest.json" ]; then
+            echo "❌ ERROR: Main branch manifest not found"
+            echo ""
+            echo "The manifest is required for state comparison in PR CI."
+            echo ""
+            echo "This typically happens when:"
+            echo "  • This is a new repository (first time setup)"
+            echo "  • The manifest artifact has expired (90-day retention)"
+            echo ""
+            echo "To fix this, manually trigger the dbt deploy workflow:"
+            echo "  1. Go to: Actions → dbt deploy"
+            echo "  2. Click 'Run workflow' button"
+            echo "  3. Select the 'main' branch"
+            echo "  4. Click 'Run workflow'"
+            echo "  5. Wait for the workflow to complete"
+            echo "  6. Re-run this PR check"
+            echo ""
+            echo "Alternatively, merge any commit to main to trigger it automatically."
+            exit 1
+          fi
+          echo "✅ Main branch manifest found"
 
       - name: Compile feature branch models
         run: uv run dbt compile
