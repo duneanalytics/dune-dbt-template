@@ -9,14 +9,14 @@ on:
       - 'dbt_project.yml'
       - 'profiles.yml'
       - 'packages.yml'
-      - '.github/workflows/dbt_run.yml'
+      - '.github/workflows/dbt_ci.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  dbt-run:
+  dbt-ci:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     
@@ -40,43 +40,54 @@ jobs:
       - name: Install dbt packages
         run: uv run dbt deps
 
-      - name: Check if manifest artifact exists
-        id: check-artifact
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          # Check if the artifact exists in the dbt_manifest_build workflow
-          if gh run list --workflow=dbt_manifest_build.yml --branch=main --status=completed --limit=1 --json databaseId | grep -q databaseId; then
-            echo "artifact_exists=true" >> $GITHUB_OUTPUT
-            echo "✅ Manifest artifact found"
-          else
-            echo "artifact_exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️  No manifest artifact found - will trigger manifest build workflow"
-          fi
-
-      - name: Trigger manifest build workflow if needed
-        if: steps.check-artifact.outputs.artifact_exists == 'false'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "🔄 Triggering dbt manifest build workflow..."
-          gh workflow run dbt_manifest_build.yml --ref main
-          
-          echo "⏳ Waiting for workflow to start..."
-          sleep 10
-          
-          echo "⏳ Waiting for manifest build to complete (this may take several minutes)..."
-          gh run watch $(gh run list --workflow=dbt_manifest_build.yml --branch=main --limit=1 --json databaseId --jq '.[0].databaseId') --exit-status
-
       - name: Download main branch manifest
+        id: download-manifest
+        continue-on-error: true
         # Using dawidd6/action-download-artifact instead of actions/download-artifact
         # because the official action only downloads artifacts from the same workflow run,
-        # while we need to download the manifest from a different workflow (dbt_manifest_build).
+        # while we need to download the manifest from a different workflow (dbt_deploy).
         uses: dawidd6/action-download-artifact@v6
         with:
           name: prod-manifest-latest
           path: ./state
-          workflow: dbt_manifest_build.yml
+          workflow: dbt_deploy.yml
+          branch: main
+          if_no_artifact_found: warn
+
+      - name: Check if manifest exists
+        id: check-manifest
+        run: |
+          if [ -f "./state/manifest.json" ]; then
+            echo "manifest_exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Main branch manifest found"
+          else
+            echo "manifest_exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️  No main branch manifest found - will generate it"
+          fi
+
+      - name: Generate manifest if missing
+        if: steps.check-manifest.outputs.manifest_exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "🔄 Triggering manifest generation workflow..."
+          gh workflow run dbt_manifest_generate.yml --ref main
+          
+          echo "⏳ Waiting for workflow to start..."
+          sleep 10
+          
+          echo "⏳ Waiting for manifest generation to complete..."
+          gh run watch $(gh run list --workflow=dbt_manifest_generate.yml --branch=main --limit=1 --json databaseId --jq '.[0].databaseId') --exit-status
+          
+          echo "✅ Manifest generated successfully"
+
+      - name: Download newly generated manifest
+        if: steps.check-manifest.outputs.manifest_exists == 'false'
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: prod-manifest-latest
+          path: ./state
+          workflow: dbt_manifest_generate.yml
           branch: main
 
       - name: Compile feature branch models

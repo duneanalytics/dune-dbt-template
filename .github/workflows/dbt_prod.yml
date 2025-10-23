@@ -7,7 +7,7 @@ on:
   workflow_dispatch:  # Allow manual triggers
 
 concurrency:
-  group: dbt-prod-runs  # Shared group with dbt_manifest_build.yml to prevent concurrent production runs
+  group: dbt-prod-runs  # Shared group with dbt_deploy.yml to prevent concurrent production runs
   cancel-in-progress: false  # Don't cancel in-progress runs, queue instead
 
 jobs:

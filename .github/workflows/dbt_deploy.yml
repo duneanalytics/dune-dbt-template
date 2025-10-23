@@ -1,4 +1,4 @@
-name: dbt manifest build
+name: dbt deploy
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
       - 'dbt_project.yml'
       - 'profiles.yml'
       - 'packages.yml'
-      - '.github/workflows/dbt_manifest_build.yml'
+      - '.github/workflows/dbt_deploy.yml'
   workflow_dispatch:  # Allow manual triggers
 
 concurrency:
@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: false  # Don't cancel in-progress runs, queue instead
 
 jobs:
-  build-manifest:
+  dbt-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     
@@ -52,14 +52,14 @@ jobs:
         with:
           name: prod-manifest-latest
           path: ./state
-          workflow: dbt_manifest_build.yml
+          workflow: dbt_deploy.yml
           branch: main
           if_no_artifact_found: warn
 
       - name: Compile current models
         run: uv run dbt compile
 
-      - name: Determine if previous state exists
+      - name: Check if previous state exists
         id: check-state
         run: |
           if [ -f "./state/manifest.json" ]; then
@@ -67,24 +67,28 @@ jobs:
             echo "✅ Previous manifest found - will run modified models only"
           else
             echo "state_exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️  No previous manifest found - will run all models (first run or artifact expired)"
+            echo "⚠️  No previous manifest - will run all models (first merge to main)"
           fi
 
-      - name: Run modified models with full refresh
-        if: steps.check-state.outputs.state_exists == 'true'
-        run: uv run dbt run --select state:modified+ --state ./state --full-refresh
+      - name: Run models
+        run: |
+          if [ "${{ steps.check-state.outputs.state_exists }}" = "true" ]; then
+            echo "Running modified models with full refresh..."
+            uv run dbt run --select state:modified+ --state ./state --full-refresh
+          else
+            echo "First merge to main - running all models..."
+            uv run dbt run
+          fi
 
-      - name: Test modified models
-        if: steps.check-state.outputs.state_exists == 'true'
-        run: uv run dbt test --select state:modified+ --state ./state
-
-      - name: Run all models (first run or no previous state)
-        if: steps.check-state.outputs.state_exists == 'false'
-        run: uv run dbt run --exclude config.materialized:view # views should only run when modified
-
-      - name: Test all models (first run or no previous state)
-        if: steps.check-state.outputs.state_exists == 'false'
-        run: uv run dbt test
+      - name: Test models
+        run: |
+          if [ "${{ steps.check-state.outputs.state_exists }}" = "true" ]; then
+            echo "Testing modified models..."
+            uv run dbt test --select state:modified+ --state ./state
+          else
+            echo "Testing all models..."
+            uv run dbt test
+          fi
 
       - name: Upload current manifest for next run
         if: always()
