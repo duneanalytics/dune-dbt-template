@@ -77,7 +77,7 @@ jobs:
             uv run dbt run --select state:modified+ --state ./state --full-refresh
           else
             echo "First merge to main - running all models..."
-            uv run dbt run
+            uv run dbt run --full-refresh
           fi
 
       - name: Test models
