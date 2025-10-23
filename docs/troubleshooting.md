@@ -4,39 +4,39 @@ Common issues and solutions.
 
 ## Environment Issues
 
-### Environment Variables Not Loading
+### Environment Variables Not Set
 
 **Symptom:** Connection failures, schema errors
 
 **Solution:**
 ```bash
-# Load environment variables
-set -a && source .env && set +a
-
-# Verify they're set
+# Verify environment variables are set
 env | grep DUNE_API_KEY
 env | grep DUNE_TEAM_NAME
 
+# If not set, export them (bash/zsh)
+export DUNE_API_KEY=your_api_key
+export DUNE_TEAM_NAME=your_team_name
+
+# Or for fish
+set -x DUNE_API_KEY your_api_key
+set -x DUNE_TEAM_NAME your_team_name
+
 # If DEV_SCHEMA_SUFFIX is set and you want to disable it:
 unset DEV_SCHEMA_SUFFIX
-set -a && source .env && set +a
 ```
 
-### Virtual Environment Issues
+### Dependency Issues
 
 **Symptom:** Package import errors, command not found
 
 **Solution:**
 ```bash
-# Reinstall everything
+# Reinstall dependencies
 uv sync --reinstall
 
-# Activate venv
-source .venv/bin/activate
-
 # Verify installation
-which dbt
-dbt --version
+uv run dbt --version
 ```
 
 ## Connection Issues
@@ -48,7 +48,7 @@ dbt --version
 **Check:**
 ```bash
 # Run debug to see detailed error
-dbt debug
+uv run dbt debug
 
 # Verify API key is set
 env | grep DUNE_API_KEY
@@ -59,7 +59,7 @@ cat profiles.yml | grep -A 5 "password:"
 
 **Common causes:**
 - Missing or incorrect `DUNE_API_KEY`
-- API key not loaded (need to run `set -a && source .env && set +a`)
+- Environment variables not exported
 
 ### SSL Certificate Errors
 
@@ -86,7 +86,7 @@ These are required and should not be changed.
 
 **Solution:**
 ```bash
-dbt deps
+uv run dbt deps
 ```
 
 This installs packages from `packages.yml`.
@@ -96,16 +96,16 @@ This installs packages from `packages.yml`.
 **Symptom:** `ref('model_name')` fails
 
 **Causes:**
-- Model hasn't been run yet: `dbt run --select model_name`
+- Model hasn't been run yet: `uv run dbt run --select model_name`
 - Typo in model name
 
 **Check:**
 ```bash
 # List all models
-dbt list
+uv run dbt list
 
 # Check specific model exists
-dbt list --select model_name
+uv run dbt list --select model_name
 ```
 
 ### Schema Permission Errors
@@ -129,7 +129,7 @@ dbt list --select model_name
 **Debug:**
 ```bash
 # Force full refresh
-dbt run --select model_name --full-refresh
+uv run dbt run --select model_name --full-refresh
 
 # Check compiled SQL
 cat target/compiled/dbt_template/models/path/to/model.sql
@@ -177,7 +177,7 @@ select * from dune.team__tmp_.my_model
 
 **Test:**
 ```bash
-dbt test --select model_name
+uv run dbt test --select model_name
 ```
 
 Should catch with `dbt_utils.unique_combination_of_columns` test.
@@ -234,7 +234,7 @@ git push
 ## Still Stuck?
 
 1. Check dbt logs: `logs/dbt.log`
-2. Run with verbose flag: `dbt run --select model_name --debug`
+2. Run with verbose flag: `uv run dbt run --select model_name --debug`
 3. Check compiled SQL: `target/compiled/dbt_template/models/path/to/model.sql`
 4. Query result directly in Dune app to verify data
 

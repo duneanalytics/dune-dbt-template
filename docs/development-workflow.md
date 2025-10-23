@@ -71,16 +71,16 @@ Before expanding date ranges:
 
 ```bash
 # Run your model
-dbt run --select my_model
+uv run dbt run --select my_model
 
 # Check data quality
 # Query the result in Dune app
 
 # Run tests
-dbt test --select my_model
+uv run dbt test --select my_model
 
 # For incremental: test multiple runs
-dbt run --select my_model  # Run twice to test incremental logic
+uv run dbt run --select my_model  # Run twice to test incremental logic
 ```
 
 ### 5. Expand Date Ranges (When Ready)
@@ -105,11 +105,11 @@ and block_date >= timestamp '2020-01-01'  -- Full history
 ## Common Commands
 
 ```bash
-dbt run --select my_model                    # Run single model
-dbt run --select my_model --full-refresh     # Full refresh incremental
-dbt run --select my_model+                   # Run model + downstream
-dbt run --select +my_model                   # Run upstream + model
-dbt test --select my_model                   # Test single model
+uv run dbt run --select my_model                    # Run single model
+uv run dbt run --select my_model --full-refresh     # Full refresh incremental
+uv run dbt run --select my_model+                   # Run model + downstream
+uv run dbt run --select +my_model                   # Run upstream + model
+uv run dbt test --select my_model                   # Test single model
 ```
 
 ## Schema Naming

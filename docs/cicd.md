@@ -45,8 +45,8 @@ git push
 
 ✅ **Test locally before pushing:**
 ```bash
-dbt run --select modified_model --full-refresh
-dbt test --select modified_model
+uv run dbt run --select modified_model --full-refresh
+uv run dbt test --select modified_model
 ```
 
 ✅ **Fix failing tests** - Don't skip tests or disable checks
