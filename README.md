@@ -40,41 +40,7 @@ uv sync
 |----------|-------------|---------|
 | `DEV_SCHEMA_SUFFIX` | Personal dev schema suffix (creates `{team}__tmp_{suffix}`) | None (uses `{team}__tmp_`) |
 
-Choose one method to set these variables:
-
-**Method A: Add to shell profile (persistent, recommended)**
-```bash
-# For zsh (default on macOS)
-echo 'export DUNE_API_KEY=your_api_key' >> ~/.zshrc
-echo 'export DUNE_TEAM_NAME=your_team_name' >> ~/.zshrc
-source ~/.zshrc
-
-# For bash
-echo 'export DUNE_API_KEY=your_api_key' >> ~/.bashrc
-echo 'export DUNE_TEAM_NAME=your_team_name' >> ~/.bashrc
-source ~/.bashrc
-
-# For fish
-echo 'set -x DUNE_API_KEY your_api_key' >> ~/.config/fish/config.fish
-echo 'set -x DUNE_TEAM_NAME your_team_name' >> ~/.config/fish/config.fish
-source ~/.config/fish/config.fish
-```
-
-**Method B: Export for current session (temporary)**
-```bash
-# bash/zsh
-export DUNE_API_KEY=your_api_key
-export DUNE_TEAM_NAME=your_team_name
-
-# fish
-set -x DUNE_API_KEY your_api_key
-set -x DUNE_TEAM_NAME your_team_name
-```
-
-**Method C: Inline with command (one-off)**
-```bash
-DUNE_API_KEY=your_api_key DUNE_TEAM_NAME=your_team_name uv run dbt debug
-```
+See [Getting Started](docs/getting-started.md#2-set-environment-variables) for multiple options to set these variables (shell profile, session export, or inline).
 
 ### 3. Install dbt Packages and Run
 
