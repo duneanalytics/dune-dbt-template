@@ -45,13 +45,13 @@ jobs:
         continue-on-error: true
         # Using dawidd6/action-download-artifact instead of actions/download-artifact
         # because the official action only downloads artifacts from the same workflow run,
-        # while we need to download the manifest from a different workflow (dbt_deploy).
+        # while we need to download the manifest from the dbt_deploy workflow.
         uses: dawidd6/action-download-artifact@v6
         with:
           name: prod-manifest-latest
           path: ./state
-          workflow: dbt_deploy.yml
           branch: main
+          search_artifacts: true  # Search across all workflows for the artifact
           if_no_artifact_found: ignore  # Let our verification step handle the error with detailed message
 
       - name: Verify manifest exists
