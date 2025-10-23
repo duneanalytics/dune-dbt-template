@@ -1,0 +1,94 @@
+name: dbt CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'models/**'
+      - 'macros/**'
+      - 'dbt_project.yml'
+      - 'profiles.yml'
+      - 'packages.yml'
+      - '.github/workflows/dbt_ci.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dbt-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    env:
+      DUNE_API_KEY: ${{ secrets.DUNE_API_KEY }}
+      DUNE_TEAM_NAME: ${{ vars.DUNE_TEAM_NAME || 'dune' }}  # Set as GitHub Variable or defaults to 'dune'
+      DEV_SCHEMA_SUFFIX: pr${{ github.event.pull_request.number }}
+    
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Install dbt packages
+        run: uv run dbt deps
+
+      - name: Download main branch manifest
+        id: download-manifest
+        continue-on-error: true
+        # Using dawidd6/action-download-artifact instead of actions/download-artifact
+        # because the official action only downloads artifacts from the same workflow run,
+        # while we need to download the manifest from the dbt_deploy workflow.
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: prod-manifest-latest
+          path: ./state
+          branch: main
+          search_artifacts: true  # Search across all workflows for the artifact
+          if_no_artifact_found: ignore  # Let our verification step handle the error with detailed message
+
+      - name: Verify manifest exists
+        run: |
+          if [ ! -f "./state/manifest.json" ]; then
+            echo "❌ ERROR: Main branch manifest not found"
+            echo ""
+            echo "The manifest is required for state comparison in PR CI."
+            echo ""
+            echo "This typically happens when:"
+            echo "  • This is a new repository (first time setup)"
+            echo "  • The manifest artifact has expired (90-day retention)"
+            echo ""
+            echo "To fix this, manually trigger the dbt deploy workflow:"
+            echo "  1. Go to: Actions → dbt deploy"
+            echo "  2. Click 'Run workflow' button"
+            echo "  3. Select the 'main' branch"
+            echo "  4. Click 'Run workflow'"
+            echo "  5. Wait for the workflow to complete"
+            echo "  6. Re-run this PR check"
+            echo ""
+            echo "Alternatively, merge any commit to main to trigger it automatically."
+            exit 1
+          fi
+          echo "✅ Main branch manifest found"
+
+      - name: Compile feature branch models
+        run: uv run dbt compile
+
+      - name: Run modified models (full refresh)
+        run: uv run dbt run --select state:modified --state ./state --full-refresh
+
+      - name: Test modified models (after full refresh)
+        run: uv run dbt test --select state:modified --state ./state
+  
+      - name: Run modified incremental models (incremental run)
+        run: uv run dbt run --select state:modified,config.materialized:incremental --state ./state
+
+      - name: Test modified incremental models (after incremental run)
+        run: uv run dbt test --select state:modified,config.materialized:incremental --state ./state

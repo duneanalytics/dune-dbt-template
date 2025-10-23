@@ -1,0 +1,103 @@
+name: dbt deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'models/**'
+      - 'macros/**'
+      - 'dbt_project.yml'
+      - 'profiles.yml'
+      - 'packages.yml'
+      - '.github/workflows/dbt_deploy.yml'
+  schedule:
+    - cron: '0 0 1 * *'  # Run monthly on the 1st to refresh manifest artifact (90-day retention)
+  workflow_dispatch:  # Allow manual triggers
+
+concurrency:
+  group: dbt-prod-runs  # Shared group with dbt_prod.yml to prevent concurrent production runs
+  cancel-in-progress: false  # Don't cancel in-progress runs, queue instead
+
+jobs:
+  dbt-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    env:
+      DUNE_API_KEY: ${{ secrets.DUNE_API_KEY }}
+      DUNE_TEAM_NAME: ${{ vars.DUNE_TEAM_NAME || 'dune' }}  # Set as GitHub Variable or defaults to 'dune'
+      DBT_TARGET: prod  # All dbt commands will use the prod target from profiles.yml
+    
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Install dbt packages
+        run: uv run dbt deps
+
+      - name: Download previous manifest for state comparison
+        id: download-manifest
+        continue-on-error: true
+        # Using dawidd6/action-download-artifact instead of actions/download-artifact
+        # because the official action only downloads artifacts from the same workflow run,
+        # while we need to download the manifest from previous runs of this workflow.
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: prod-manifest-latest
+          path: ./state
+          branch: main
+          search_artifacts: true  # Search across all workflows for the artifact
+          if_no_artifact_found: warn
+
+      - name: Compile current models
+        run: uv run dbt compile
+
+      - name: Check if previous state exists
+        id: check-state
+        run: |
+          if [ -f "./state/manifest.json" ]; then
+            echo "state_exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Previous manifest found - will run modified models only"
+          else
+            echo "state_exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️  No previous manifest - will run all models (first merge to main)"
+          fi
+
+      - name: Run models
+        run: |
+          if [ "${{ steps.check-state.outputs.state_exists }}" = "true" ]; then
+            echo "Running modified models with full refresh..."
+            uv run dbt run --select state:modified+ --state ./state --full-refresh
+          else
+            echo "First merge to main - running all models..."
+            uv run dbt run --full-refresh
+          fi
+
+      - name: Test models
+        run: |
+          if [ "${{ steps.check-state.outputs.state_exists }}" = "true" ]; then
+            echo "Testing modified models..."
+            uv run dbt test --select state:modified+ --state ./state
+          else
+            echo "Testing all models..."
+            uv run dbt test
+          fi
+
+      - name: Upload current manifest for next run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-manifest-latest
+          path: target/manifest.json
+          retention-days: 90
+          overwrite: true # overwrite the artifact with the latest manifest, ensures only one artifact is uploaded
+
