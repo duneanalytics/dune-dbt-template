@@ -37,8 +37,8 @@ jobs:
       - name: Install dbt packages
         run: uv run dbt deps
 
-      - name: Run incremental models
+      - name: Run models
         run: uv run dbt run --exclude config.materialized:view # views should only run when modified
 
-      - name: Test incremental models
-        run: uv run dbt test
+      - name: Test models
+        run: uv run dbt test --exclude config.materialized:view # views should only be tested when modified
