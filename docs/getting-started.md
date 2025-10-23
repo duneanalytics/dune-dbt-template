@@ -17,33 +17,62 @@ Quick setup guide for new developers cloning this dbt project.
 git clone <repo-url>
 cd dune-dbt-template
 uv sync
-source .venv/bin/activate
 ```
 
-### 2. Configure Credentials
+### 2. Set Environment Variables
+
+Choose one method:
+
+**Method A: Add to shell profile (persistent)**
 
 ```bash
-cp .env.example .env
+# For zsh (default on macOS)
+echo 'export DUNE_API_KEY=your_api_key_here' >> ~/.zshrc
+echo 'export DUNE_TEAM_NAME=your_team_name' >> ~/.zshrc
+echo 'export DEV_SCHEMA_SUFFIX=your_name' >> ~/.zshrc  # Optional
+source ~/.zshrc
+
+# For bash
+echo 'export DUNE_API_KEY=your_api_key_here' >> ~/.bashrc
+echo 'export DUNE_TEAM_NAME=your_team_name' >> ~/.bashrc
+echo 'export DEV_SCHEMA_SUFFIX=your_name' >> ~/.bashrc  # Optional
+source ~/.bashrc
+
+# For fish
+echo 'set -x DUNE_API_KEY your_api_key_here' >> ~/.config/fish/config.fish
+echo 'set -x DUNE_TEAM_NAME your_team_name' >> ~/.config/fish/config.fish
+echo 'set -x DEV_SCHEMA_SUFFIX your_name' >> ~/.config/fish/config.fish  # Optional
+source ~/.config/fish/config.fish
 ```
 
-Edit `.env` and set:
+**Method B: Export for current session (temporary)**
+
 ```bash
-DUNE_API_KEY=your_api_key_here
-DUNE_TEAM_NAME=your_team_name
-DEV_SCHEMA_SUFFIX=your_name  # Optional: your personal dev space
+# bash/zsh
+export DUNE_API_KEY=your_api_key_here
+export DUNE_TEAM_NAME=your_team_name
+export DEV_SCHEMA_SUFFIX=your_name  # Optional
+
+# fish
+set -x DUNE_API_KEY your_api_key_here
+set -x DUNE_TEAM_NAME your_team_name
+set -x DEV_SCHEMA_SUFFIX your_name  # Optional
 ```
 
-### 3. Load Environment and Test Connection
+**Method C: Inline with commands (one-off)**
 
 ```bash
-# Load environment variables
-set -a && source .env && set +a
+DUNE_API_KEY=your_api_key_here DUNE_TEAM_NAME=your_team_name uv run dbt debug
+```
 
+### 3. Install dbt Packages and Test Connection
+
+```bash
 # Install dbt packages
-dbt deps
+uv run dbt deps
 
 # Test connection
-dbt debug
+uv run dbt debug
 ```
 
 You should see: `All checks passed!`
@@ -52,13 +81,13 @@ You should see: `All checks passed!`
 
 ```bash
 # Run all models (writes to dev schema)
-dbt run
+uv run dbt run
 
 # Run tests
-dbt test
+uv run dbt test
 
 # View documentation
-dbt docs generate && dbt docs serve
+uv run dbt docs generate && uv run dbt docs serve
 ```
 
 ## Development Targets
@@ -68,7 +97,7 @@ dbt docs generate && dbt docs serve
 
 To use prod target:
 ```bash
-dbt run --target prod
+uv run dbt run --target prod
 ```
 
 ## Staying Updated with Template Changes

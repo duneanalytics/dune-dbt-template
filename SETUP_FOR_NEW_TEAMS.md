@@ -54,14 +54,35 @@ your_project_name:  # Match the profile name above
       # ... rest stays the same
 ```
 
-### .env File
-```bash
-cp .env.example .env
+### Set Environment Variables
 
-# Edit .env:
-DUNE_API_KEY=your_actual_api_key
-DUNE_TEAM_NAME=your_team_name
-DEV_SCHEMA_SUFFIX=your_name  # Optional
+Add to your shell profile (recommended):
+
+```bash
+# For zsh (default on macOS)
+echo 'export DUNE_API_KEY=your_actual_api_key' >> ~/.zshrc
+echo 'export DUNE_TEAM_NAME=your_team_name' >> ~/.zshrc
+echo 'export DEV_SCHEMA_SUFFIX=your_name' >> ~/.zshrc  # Optional
+source ~/.zshrc
+
+# For bash
+echo 'export DUNE_API_KEY=your_actual_api_key' >> ~/.bashrc
+echo 'export DUNE_TEAM_NAME=your_team_name' >> ~/.bashrc
+echo 'export DEV_SCHEMA_SUFFIX=your_name' >> ~/.bashrc  # Optional
+source ~/.bashrc
+
+# For fish
+echo 'set -x DUNE_API_KEY your_actual_api_key' >> ~/.config/fish/config.fish
+echo 'set -x DUNE_TEAM_NAME your_team_name' >> ~/.config/fish/config.fish
+echo 'set -x DEV_SCHEMA_SUFFIX your_name' >> ~/.config/fish/config.fish  # Optional
+source ~/.config/fish/config.fish
+```
+
+Or export for current session:
+```bash
+export DUNE_API_KEY=your_actual_api_key
+export DUNE_TEAM_NAME=your_team_name
+export DEV_SCHEMA_SUFFIX=your_name  # Optional
 ```
 
 ## 4. First Run
@@ -69,20 +90,16 @@ DEV_SCHEMA_SUFFIX=your_name  # Optional
 ```bash
 # Install dependencies
 uv sync
-source .venv/bin/activate
-
-# Load environment
-set -a && source .env && set +a
 
 # Install dbt packages
-dbt deps
+uv run dbt deps
 
 # Test connection
-dbt debug
+uv run dbt debug
 
 # Run template models (optional - you can delete these)
-dbt run
-dbt test
+uv run dbt run
+uv run dbt test
 ```
 
 ## 5. Remove Template Models (Optional)
