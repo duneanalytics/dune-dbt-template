@@ -54,41 +54,39 @@ jobs:
           branch: main
           if_no_artifact_found: warn
 
-      - name: Check if manifest exists
-        id: check-manifest
+      - name: Generate manifest if not found
+        if: "!contains(steps.download-manifest.outcome, 'success')"
         run: |
-          if [ -f "./state/manifest.json" ]; then
-            echo "manifest_exists=true" >> $GITHUB_OUTPUT
-            echo "✅ Main branch manifest found"
-          else
-            echo "manifest_exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️  No main branch manifest found - will generate it"
-          fi
+          echo "⚠️  No manifest found - generating from main branch..."
+          
+          # Check out main branch to a subdirectory
+          git fetch origin main
+          git worktree add main-branch origin/main
+          
+          cd main-branch
+          
+          # Install packages and compile
+          uv run dbt deps
+          uv run dbt compile
+          
+          # Copy manifest to state directory
+          cd ..
+          mkdir -p state
+          cp main-branch/target/manifest.json state/manifest.json
+          
+          # Clean up worktree
+          git worktree remove main-branch
+          
+          echo "✅ Manifest generated from main branch"
 
-      - name: Generate manifest if missing
-        if: steps.check-manifest.outputs.manifest_exists == 'false'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "🔄 Triggering manifest generation workflow..."
-          gh workflow run dbt_manifest_generate.yml --ref main
-          
-          echo "⏳ Waiting for workflow to start..."
-          sleep 10
-          
-          echo "⏳ Waiting for manifest generation to complete..."
-          gh run watch $(gh run list --workflow=dbt_manifest_generate.yml --branch=main --limit=1 --json databaseId --jq '.[0].databaseId') --exit-status
-          
-          echo "✅ Manifest generated successfully"
-
-      - name: Download newly generated manifest
-        if: steps.check-manifest.outputs.manifest_exists == 'false'
-        uses: dawidd6/action-download-artifact@v6
+      - name: Upload generated manifest as artifact
+        if: "!contains(steps.download-manifest.outcome, 'success')"
+        uses: actions/upload-artifact@v4
         with:
           name: prod-manifest-latest
-          path: ./state
-          workflow: dbt_manifest_generate.yml
-          branch: main
+          path: state/manifest.json
+          retention-days: 90
+          overwrite: true
 
       - name: Compile feature branch models
         run: uv run dbt compile
