@@ -6,7 +6,7 @@ dbt_template:
       type: trino
       user: dune # do not change: user is always 'dune'
       password: "{{ env_var('DUNE_API_KEY') }}"
-      host: dune-api-trino.dune.com
+      host: trino.api.dune.com
       port: 443
       method: ldap
       catalog: dune # do not change: catalog is always 'dune'
@@ -23,7 +23,7 @@ dbt_template:
       type: trino
       user: dune # do not change: user is always 'dune'
       password: "{{ env_var('DUNE_API_KEY') }}"
-      host: dune-api-trino.dune.com
+      host: trino.api.dune.com
       port: 443
       method: ldap
       catalog: dune # do not change: catalog is always 'dune'
