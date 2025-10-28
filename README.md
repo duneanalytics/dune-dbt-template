@@ -54,7 +54,7 @@ uv run dbt test      # Run tests
 ### Target Configuration
 
 This project uses dbt targets to control **schema naming**, not API endpoints:
-- Both `dev` and `prod` targets connect to the **same production API** (`dune-api-trino.dune.com`)
+- Both `dev` and `prod` targets connect to the **same production API** (`trino.api.dune.com`)
 - Target names control where models are written:
   - **`dev` target** (default): Writes to `{team}__tmp_` schemas (safe for development)
   - **`prod` target**: Writes to `{team}` schemas (production tables)
