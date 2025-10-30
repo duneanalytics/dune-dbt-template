@@ -19,6 +19,21 @@ Settings → Actions → General:
 
 **Note:** This template uses GitHub-hosted runners (`ubuntu-latest`). GitHub provides and manages these automatically.
 
+### Fork Pull Request Workflow Permissions (Required for Public Repos)
+
+**Important:** If this is a public repository, protect your secrets and workflows from unauthorized use.
+
+Settings → Actions → General → Fork pull request workflows from outside collaborators:
+- ✅ **Require approval for all outside collaborators** (most secure, recommended)
+- OR: Require approval for first-time contributors
+
+**Why this matters:**
+- Workflows have access to secrets like `DUNE_API_KEY`
+- Protect team account from unnecessary workflow runs which consume credits
+- This setting requires a maintainer to manually approve workflow runs from non-org members
+
+**Note:** This only affects public repositories. Private repos automatically restrict workflow access to org members.
+
 ## 2. GitHub Secrets & Variables
 
 ### Required Secrets
