@@ -2,6 +2,17 @@
 
 All notable changes to this template will be documented in this file.
 
+## [1.1.1] - 2025-10-30
+
+### Changed
+- **API Endpoint Update**: Updated Dune Trino API host from `dune-api-trino.dune.com` to `trino.api.dune.com` in profiles.yml (#40)
+
+### Added
+- **Security Documentation**: Added guidance for public repositories to require workflow approval for outside contributors (#41)
+  - New section in SETUP_FOR_NEW_TEAMS.md explaining fork pull request workflow permissions
+  - Protects secrets (DUNE_API_KEY) and prevents unauthorized workflow runs
+  - Brief reference added to README.md GitHub Setup section
+
 ## [1.1.0] - 2025-10-23
 
 ### Changed
