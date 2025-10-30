@@ -176,7 +176,9 @@ Runs hourly on main branch. Uses state comparison to only full refresh modified 
 1. Add Secret: `DUNE_API_KEY` (Settings → Secrets and variables → Actions → Secrets)
 2. Add Variable: `DUNE_TEAM_NAME` (Settings → Secrets and variables → Actions → Variables)
    - Optional, defaults to `'dune'` if not set
-3. **Public repos:** Require approval for outside contributor workflows (Settings → Actions → General → Fork pull request workflows)
+
+**Recommended:**
+1. **Public repos:** Require approval for outside contributor workflows (Settings → Actions → General → Fork pull request workflows)
    - Protects secrets from unauthorized access
    - See [SETUP_FOR_NEW_TEAMS.md](SETUP_FOR_NEW_TEAMS.md#fork-pull-request-workflow-permissions-required-for-public-repos) for details
 
