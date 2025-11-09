@@ -292,12 +292,14 @@ source = { virtual = "." }
 dependencies = [
     { name = "dbt-core" },
     { name = "dbt-trino" },
+    { name = "trino" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "dbt-core", specifier = ">=1.10.13" },
     { name = "dbt-trino", specifier = ">=1.9.3" },
+    { name = "trino", specifier = ">=0.329.0" },
 ]
 
 [package.metadata.requires-dev]

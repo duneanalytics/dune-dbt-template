@@ -222,6 +222,8 @@ models/          # dbt models and templates
 macros/          # Custom Dune macros (schema overrides, sources)
   └── dune_dbt_overrides/
       └── get_custom_schema.sql  # Controls schema naming based on target
+scripts/         # Utility scripts for managing your Dune dbt project
+  └── drop_tables.py  # Drop tables/views by schema pattern or specific table
 .cursor/         # Cursor AI rules (dbt-best-practices.mdc)
   └── rules/
       └── dbt-best-practices.mdc  # dbt patterns and configurations
@@ -241,6 +243,10 @@ The `get_custom_schema.sql` macro determines where models are written based on t
 | `dev` | Set to `alice` | `{team}__tmp_alice` | Personal dev space |
 
 This ensures safe isolation between development and production environments.
+
+## Utility Scripts
+
+The `scripts/` directory contains utility scripts for managing tables and schemas. See [scripts/README.md](scripts/README.md) for details.
 
 ## Links
 
