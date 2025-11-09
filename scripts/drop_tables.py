@@ -163,6 +163,65 @@ def list_tables_by_pattern(
         cursor.close()
 
 
+def list_tables_by_schema(
+    connection: trino.dbapi.Connection,
+    schema: str,
+    catalog: str = "dune",
+) -> list:
+    """
+    List all tables in a specific schema using exact equality match.
+
+    Args:
+        connection: Active Trino connection
+        schema: Exact schema name (no pattern matching)
+        catalog: Catalog name (default: 'dune')
+
+    Returns:
+        list: List of dicts with schema, table name, and type
+    """
+    cursor = connection.cursor()
+
+    # Use parameterized query with exact equality (not LIKE)
+    query = """
+        select
+            table_schema
+            , table_name
+            , table_type
+        from
+            dune.information_schema.tables
+        where
+            table_catalog = ?
+            and table_schema = ?
+        order by
+            table_schema
+            , table_name
+    """
+
+    logger.info(f"Querying tables in schema: {schema}")
+    logger.debug(f"Query: {query}")
+    logger.debug(f"Parameters: catalog={catalog}, schema={schema}")
+
+    try:
+        cursor.execute(query, (catalog, schema))
+        results = cursor.fetchall()
+
+        tables = []
+        for row in results:
+            schema_name, table_name, table_type = row
+            tables.append({
+                "schema": schema_name,
+                "name": table_name,
+                "type": table_type,
+            })
+
+        return tables
+    except Exception as e:
+        logger.error(f"Error querying tables: {e}")
+        raise
+    finally:
+        cursor.close()
+
+
 def list_specific_table(
     connection: trino.dbapi.Connection,
     schema: str,
@@ -512,15 +571,15 @@ Examples:
                 logger.warning(f"Table '{args.table}' not found in schema '{args.schema}'")
                 return 0
         elif use_pattern:
-            # Drop by pattern
+            # Drop by pattern (uses SQL LIKE with wildcards)
             tables = list_tables_by_pattern(
                 connection,
                 schema_or_pattern,
                 catalog="dune",
             )
         else:
-            # Drop all in specific schema (treat as exact match pattern)
-            tables = list_tables_by_pattern(
+            # Drop all in specific schema (uses exact equality match)
+            tables = list_tables_by_schema(
                 connection,
                 schema_or_pattern,
                 catalog="dune",
