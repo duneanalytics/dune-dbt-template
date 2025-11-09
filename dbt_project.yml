@@ -37,3 +37,5 @@ models:
     +post-hook:
       - sql: "{{ optimize_table(this, model.config.materialized) }}"
         transaction: true
+      - sql: "{{ vacuum_table(this, model.config.materialized) }}"
+        transaction: true
