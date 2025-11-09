@@ -493,6 +493,7 @@ Examples:
         logger.info(f"Target [{target_label}]: All tables in schema '{schema_or_pattern}'")
 
     # Execute
+    dune_conn = None
     try:
         # Create connection
         dune_conn = DuneTrinoConnection(api_key=args.api_key)
@@ -509,7 +510,6 @@ Examples:
             )
             if not tables:
                 logger.warning(f"Table '{args.table}' not found in schema '{args.schema}'")
-                dune_conn.close()
                 return 0
         elif use_pattern:
             # Drop by pattern
@@ -551,12 +551,10 @@ Examples:
                 response = input("Are you sure you want to proceed? Type 'yes' to confirm: ").strip().lower()
                 if response != "yes":
                     logger.info("Operation cancelled by user.")
-                    dune_conn.close()
                     return 0
                 logger.info("Confirmed. Proceeding with drop operations...")
             except (KeyboardInterrupt, EOFError):
                 logger.info("\nOperation cancelled by user.")
-                dune_conn.close()
                 return 0
 
         # Drop the tables
@@ -575,14 +573,15 @@ Examples:
             logger.info("Use --execute flag to actually drop the tables/views.")
             logger.info("=" * 80)
 
-        # Close connection
-        dune_conn.close()
-
         return 0
 
     except Exception as e:
         logger.error(f"Failed to complete operation: {e}")
         return 1
+    finally:
+        # Ensure connection is always closed, even if an exception occurs
+        if dune_conn is not None:
+            dune_conn.close()
 
 
 if __name__ == "__main__":
