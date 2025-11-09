@@ -122,8 +122,8 @@ def list_tables_by_pattern(
     """
     cursor = connection.cursor()
 
-    # Use LIKE pattern matching for schema
-    query = f"""
+    # Use parameterized query to prevent SQL injection
+    query = """
         select
             table_schema
             , table_name
@@ -131,8 +131,8 @@ def list_tables_by_pattern(
         from
             dune.information_schema.tables
         where
-            table_catalog = '{catalog}'
-            and table_schema like '{schema_pattern}'
+            table_catalog = ?
+            and table_schema like ?
         order by
             table_schema
             , table_name
@@ -140,9 +140,10 @@ def list_tables_by_pattern(
 
     logger.info(f"Querying tables matching schema pattern: {schema_pattern}")
     logger.debug(f"Query: {query}")
+    logger.debug(f"Parameters: catalog={catalog}, schema_pattern={schema_pattern}")
 
     try:
-        cursor.execute(query)
+        cursor.execute(query, (catalog, schema_pattern))
         results = cursor.fetchall()
 
         tables = []
@@ -182,7 +183,8 @@ def list_specific_table(
     """
     cursor = connection.cursor()
 
-    query = f"""
+    # Use parameterized query to prevent SQL injection
+    query = """
         select
             table_schema
             , table_name
@@ -190,16 +192,17 @@ def list_specific_table(
         from
             dune.information_schema.tables
         where
-            table_catalog = '{catalog}'
-            and table_schema = '{schema}'
-            and table_name = '{table_name}'
+            table_catalog = ?
+            and table_schema = ?
+            and table_name = ?
     """
 
     logger.info(f"Querying table: {catalog}.{schema}.{table_name}")
     logger.debug(f"Query: {query}")
+    logger.debug(f"Parameters: catalog={catalog}, schema={schema}, table_name={table_name}")
 
     try:
-        cursor.execute(query)
+        cursor.execute(query, (catalog, schema, table_name))
         results = cursor.fetchall()
 
         tables = []
@@ -217,6 +220,30 @@ def list_specific_table(
         raise
     finally:
         cursor.close()
+
+
+def quote_identifier(identifier: str) -> str:
+    """
+    Quote a SQL identifier to prevent SQL injection in DDL statements.
+    
+    In Trino, identifiers can be quoted with double quotes.
+    This function validates and quotes identifiers safely.
+    
+    Args:
+        identifier: SQL identifier to quote
+        
+    Returns:
+        str: Quoted identifier
+        
+    Raises:
+        ValueError: If identifier contains quotes or is invalid
+    """
+    # Validate: no double quotes allowed (would break quoting)
+    if '"' in identifier:
+        raise ValueError(f"Invalid identifier: contains double quotes: {identifier}")
+    
+    # Quote the identifier
+    return f'"{identifier}"'
 
 
 def drop_table_or_view(
@@ -241,11 +268,20 @@ def drop_table_or_view(
     Returns:
         bool: True if successful (or dry run), False otherwise
     """
-    # Determine if this is a table or view
-    if table_type == "VIEW":
-        drop_statement = f"drop view if exists {catalog}.{schema}.{table_name}"
-    else:  # BASE TABLE or other types
-        drop_statement = f"drop table if exists {catalog}.{schema}.{table_name}"
+    try:
+        # Quote identifiers to prevent SQL injection in DDL statements
+        quoted_catalog = quote_identifier(catalog)
+        quoted_schema = quote_identifier(schema)
+        quoted_table = quote_identifier(table_name)
+        
+        # Determine if this is a table or view
+        if table_type == "VIEW":
+            drop_statement = f"drop view if exists {quoted_catalog}.{quoted_schema}.{quoted_table}"
+        else:  # BASE TABLE or other types
+            drop_statement = f"drop table if exists {quoted_catalog}.{quoted_schema}.{quoted_table}"
+    except ValueError as e:
+        logger.error(f"✗ Invalid identifier for {schema}.{table_name}: {e}")
+        return False
 
     # Always log the drop command
     logger.info(f"DROP: {drop_statement}")
