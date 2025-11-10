@@ -77,6 +77,117 @@ Only use for time-series data where you ONLY need recent target records.
 
 When in doubt, leave it out.
 
+### Lookback Periods for Source Reads
+
+**Use a lookback period when reading from source tables in incremental models to handle late-arriving data and gaps.**
+
+This handles:
+- **Upstream delays**: Source data may be delayed due to incidents
+- **Late-arriving data**: Data points may arrive hours or days late
+- **Data gaps**: Automatically backfills missing data within lookback window
+
+#### Recommended Pattern
+
+```sql
+{{ config(
+    alias = 'my_incremental_model'
+    , materialized = 'incremental'
+    , incremental_strategy = 'merge'
+    , unique_key = ['block_date', 'transaction_hash']
+) }}
+
+select
+    block_date
+    , block_time
+    , transaction_hash
+    , from_address
+    , to_address
+    , value
+from
+    {{ source('ethereum', 'transactions') }}
+where
+    block_date >= date('2020-01-01')  -- Historical start date
+    {% if is_incremental() %}
+    -- Lookback period: adjust based on run frequency and reliability needs
+    and block_date >= current_date - interval '7' day
+    {% endif %}
+```
+
+#### Choosing the Right Lookback Period
+
+The optimal lookback period depends on your **run frequency** and **priorities**:
+
+| Run Frequency | Suggested Lookback | Reasoning |
+|---------------|-------------------|-----------|
+| **Hourly** | 1-2 days | Frequent runs catch gaps quickly; shorter lookback keeps costs low |
+| **Daily** | 3-7 days | Longer lookback needed since next run is 24 hours away |
+| **Weekly** | 7-14 days | Must cover full week + buffer for late-arriving data |
+
+**Cost vs. Reliability Trade-offs:**
+
+✅ **Larger Lookback Period (7+ days)**
+- ✅ More reliable: catches all late-arriving data and handles longer delays
+- ✅ Peace of mind: less worry about upstream source data delays
+- ✅ Better for infrequent runs (daily/weekly)
+- ❌ More data processed: longer query runs, higher credit spend
+
+✅ **Shorter Lookback Period (1-3 days)**
+- ✅ Lower cost: less data scanned, faster query runs, lower credit spend
+- ✅ Better for frequent runs (hourly)
+- ❌ May miss data: late-arriving data beyond lookback window requires manual backfills
+- ❌ More maintenance: need to monitor for gaps
+
+**Recommendation:** Find the right balance for your team:
+- Consider your data SLAs and how critical up-to-date data is
+- Factor in your credit budget and query costs
+- Start with 7 days for daily runs, adjust based on observed delays
+- Monitor for gaps and tune the lookback period accordingly
+
+#### Lookback vs. Full History
+
+The lookback period is ONLY for source reads in `is_incremental()` block:
+
+```sql
+-- ✅ CORRECT: Lookback on source, full merge on target
+select
+    ...
+from
+    {{ source('ethereum', 'transactions') }}
+where
+    block_date >= date('2020-01-01')
+    {% if is_incremental() %}
+    and block_date >= current_date - interval '7' day  -- Lookback on SOURCE
+    {% endif %}
+```
+
+The target table merge still checks ALL existing records (unless using `incremental_predicates`).
+
+#### Benefits
+
+1. **Automatic gap filling**: If yesterday's data was missing, next run picks it up
+2. **Late data handling**: Data arriving 2-3 days late is captured
+3. **Upstream incident recovery**: When sources come back online, gaps auto-fill
+4. **No manual backfills**: Most data quality issues resolve automatically
+
+#### Example: Tuning for Your Use Case
+
+```sql
+-- High-value, daily run, reliability critical → 7-day lookback
+{% if is_incremental() %}
+and block_date >= current_date - interval '7' day  -- Handles weekly delays
+{% endif %}
+
+-- High-frequency hourly run, cost-sensitive → 1-2 day lookback
+{% if is_incremental() %}
+and block_date >= current_date - interval '1' day  -- Minimal lookback, frequent runs
+{% endif %}
+
+-- Weekly run, must cover full period → 10-14 day lookback
+{% if is_incremental() %}
+and block_date >= current_date - interval '14' day  -- Cover full week + buffer
+{% endif %}
+```
+
 ## Partitioning
 
 ### When to Partition
