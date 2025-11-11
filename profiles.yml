@@ -18,6 +18,7 @@ dbt_template:
       cert: true
       session_properties:
         transformations: true
+        enforce_join_distribution: PARTITIONED
       timezone: UTC
     prod:
       type: trino
@@ -35,4 +36,5 @@ dbt_template:
       cert: true
       session_properties:
         transformations: true
+        enforce_join_distribution: PARTITIONED
       timezone: UTC
