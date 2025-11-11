@@ -33,7 +33,6 @@ models:
     # Config indicated by + and applies to all files under models/templates/
     +materialized: view       # fallback default, materialized should be overriden in model specific configs
     +view_security: invoker   # required security setting for views
-    +on_table_exists: replace # dunesql hive metastore does *not* allow rename of table, meaning standard dbt table operations won't work (drop temp table, create temp table, rename existing table to backup, rename temp to final, drop backup)
     +post-hook:
       - sql: "{{ optimize_table(this, model.config.materialized) }}"
         transaction: true
