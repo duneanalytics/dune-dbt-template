@@ -2,7 +2,7 @@
 
 All notable changes to this template will be documented in this file.
 
-## [v1.2.0] - 2025-11-14
+## [1.2.0] - 2025-11-14
 
 ### Changed
 - **Table Materialization Strategy**: Removed project-level `on_table_exists: replace` config (#46)
