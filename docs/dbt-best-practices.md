@@ -275,7 +275,6 @@ where
 
 Set globally in `dbt_project.yml`, do not override:
 - `view_security: invoker` - Required for Dune views
-- `on_table_exists: replace` - Required due to Hive metastore limitations
 - `require_certificate_validation: true` - Security requirement
 
 ## See Also
