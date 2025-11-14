@@ -135,6 +135,56 @@ uv run dbt run --select model_name --full-refresh
 cat target/compiled/dbt_template/models/path/to/model.sql
 ```
 
+### Model Full Refresh Fails with DELTA_LAKE_BAD_WRITE
+
+**Symptom:** Full refresh fails when schema changes with error:
+- `DELTA_LAKE_BAD_WRITE`
+- "Failed to write Delta Lake transaction log entry"
+- "Failed accessing transaction log for table: <table_name>"
+- "TrinoException: Unsupported Trino column type"
+
+**Cause:**
+This occurs when:
+1. You set `on_table_exists: replace` config on a table model or project-wide config
+2. The model's schema changes (column types, new/removed columns)
+3. You trigger a full refresh
+
+The `replace` strategy cannot handle schema changes because of data type mismatches between the existing table schema and the new schema in the Delta Lake transaction log.
+
+**Note:** By default (when `on_table_exists` is not configured), dbt-trino uses a temp table strategy: create temp → rename existing to backup → rename temp to final → drop backup. This default strategy handles schema changes properly.
+
+**Solution:**
+
+You must **manually drop the table** before running the full refresh.
+
+**Option 1: Use the provided Python script**
+```bash
+# Drop a single table
+uv run python scripts/drop_table.py --schema your_schema_name --table your_table_name
+
+# Drop with target specification
+uv run python scripts/drop_table.py --schema your_schema_name --table your_table_name --target dev
+```
+
+**Option 2: Use any Trino client**
+Connect to the Dune Trino API endpoint and run:
+```sql
+DROP TABLE IF EXISTS dune.your_schema_name.your_table_name;
+```
+
+**Then run your full refresh:**
+```bash
+uv run dbt run --select model_name --full-refresh
+```
+
+**Prevention:**
+
+⚠️ **Use `on_table_exists: replace` only for specific use cases.**
+
+The default behavior (temp table strategy) is recommended because:
+- It properly handles schema changes
+- It avoids Delta Lake transaction log conflicts
+
 ## Query Issues
 
 ### Query on Dune App Fails
