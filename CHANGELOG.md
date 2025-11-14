@@ -2,6 +2,30 @@
 
 All notable changes to this template will be documented in this file.
 
+## [v1.2.0] - 2025-11-14
+
+### Changed
+- **Table Materialization Strategy**: Removed project-level `on_table_exists: replace` config (#46)
+  - Now uses dbt-trino default strategy (temp table → rename sequence)
+  - Allows proper schema change handling during full refreshes
+  - Updated documentation to reflect this change (#48)
+
+### Added
+- **Table Maintenance Automation**: Global post-hooks for Delta Lake table optimization (#45)
+  - Automatic `OPTIMIZE` command after table/incremental materializations
+  - Automatic `VACUUM` command to clean up old files
+  - Improves query performance and reduces storage costs
+- **Table/View Drop Script**: Python utility script for manual table/view cleanup (#43)
+  - Supports dropping tables and views across dev/prod environments
+  - Uses Dune API key for authentication
+  - Helpful for schema migrations and cleanup tasks
+- **Source Read Recommendations**: Documentation for efficient source filtering (#44)
+  - Best practices for lookback periods on blockchain data
+  - Guidance on date-based filtering strategies
+
+### Fixed
+- **Troubleshooting Documentation**: Added guidance for `DELTA_LAKE_BAD_WRITE` errors when using `on_table_exists: replace` with schema changes
+
 ## [1.1.1] - 2025-10-30
 
 ### Changed
