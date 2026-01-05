@@ -9,6 +9,9 @@
     alias = 'dbt_template_append_incremental_model'
     , materialized = 'incremental'
     , incremental_strategy = 'append'
+    , properties = {
+        "partitioned_by": "ARRAY['block_date']"
+    }
 )
 }}
 

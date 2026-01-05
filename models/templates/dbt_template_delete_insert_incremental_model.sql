@@ -12,6 +12,9 @@
     , incremental_strategy = 'delete+insert'
     , unique_key = ['block_number', 'block_date']
     , incremental_predicates = ["block_date >= now() - interval '1' day"]
+    , properties = {
+        "partitioned_by": "ARRAY['block_date']"
+    }
 )
 }}
 
