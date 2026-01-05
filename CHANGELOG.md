@@ -2,6 +2,15 @@
 
 All notable changes to this template will be documented in this file.
 
+## [v1.3.0] - 2026-01-05
+
+### Changed
+- **Partition Configuration Format**: Updated partition strategy to use `properties = { "partitioned_by": "ARRAY['column']" }` format (#50)
+  - Changed from `partition_by` to proper `properties` configuration for Dune transformations endpoint compatibility
+  - Updated all model templates (table, merge incremental, delete+insert incremental, append incremental) with partition examples
+  - Updated documentation with correct partition configuration syntax and examples
+  - Ensures proper partition assignment and table building using transformations endpoint
+
 ## [v1.2.0] - 2025-11-14
 
 ### Changed
