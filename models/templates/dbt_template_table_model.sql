@@ -7,6 +7,9 @@
 {{ config(
     alias = 'dbt_template_table_model'
     , materialized = 'table'
+    , properties = {
+        "partitioned_by": "ARRAY['block_date']"
+    }
 )
 }}
 
