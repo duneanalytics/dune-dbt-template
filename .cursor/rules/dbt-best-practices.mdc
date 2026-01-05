@@ -843,8 +843,9 @@ limit 10000
 **Guidelines for Partitioning:**
 - ⚠️ **Only partition if the table is large** - Each partition should contain at least ~1 million rows or more
 - **Common use cases**: Time-based partitions for large event tables
-  - Example: `partition_by=['block_month']` for monthly transfers, swaps, liquidity events
-  - Example: `partition_by=['evt_block_month']` for decoded event logs
+  - Example: `properties = { "partitioned_by": "ARRAY['block_date']" }` for daily partitions
+  - Example: `properties = { "partitioned_by": "ARRAY['block_month']" }` for monthly transfers, swaps, liquidity events
+  - Example: `properties = { "partitioned_by": "ARRAY['evt_block_month']" }` for decoded event logs
 - **Small tables**: If a table is smaller, partitioning can **hurt performance** more than help
   - Partition overhead (metadata, file management) outweighs benefits
   - Query planning becomes more complex without meaningful data reduction
@@ -862,6 +863,28 @@ limit 10000
 - **How it helps**: Trino can prune partitions during the lookup, scanning only relevant partitions instead of the entire target table
 - **Performance impact**: Can reduce lookup time from minutes to seconds on large tables
 
+**Example (partitioned table model):**
+```sql
+{{ config(
+    alias = 'daily_transaction_summary'
+    , materialized = 'table'
+    , properties = {
+        "partitioned_by": "ARRAY['block_date']"
+    }
+) }}
+
+select
+    block_date
+    , count(*) as transaction_count
+    , sum(value) as total_value
+from
+    {{ source('ethereum', 'transactions') }}
+where
+    block_date >= now() - interval '7' day
+group by
+    block_date
+```
+
 **Example (partitioned incremental model):**
 ```sql
 {{ config(
@@ -869,7 +892,9 @@ limit 10000
     , materialized = 'incremental'
     , incremental_strategy = 'merge'
     , unique_key = ['block_month', 'transaction_hash', 'evt_index']  -- ✅ block_month is partition column AND in unique_key
-    , partition_by = ['block_month']
+    , properties = {
+        "partitioned_by": "ARRAY['block_month']"
+    }
 ) }}
 
 select
@@ -886,14 +911,16 @@ where
     block_time >= date_trunc('month', now()) - interval '1' month
 ```
 
-**Example (DO NOT do this):**
+**Example (DO NOT do this - missing partition column in unique_key):**
 ```sql
 {{ config(
     alias = 'monthly_dex_swaps'
     , materialized = 'incremental'
     , incremental_strategy = 'merge'
     , unique_key = ['transaction_hash', 'evt_index']  -- ❌ Missing block_month from unique_key
-    , partition_by = ['block_month']
+    , properties = {
+        "partitioned_by": "ARRAY['block_month']"
+    }
 ) }}
 -- This will cause full table scans on the target during merge lookups!
 ```

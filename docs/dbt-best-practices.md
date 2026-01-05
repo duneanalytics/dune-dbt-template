@@ -195,7 +195,8 @@ and block_date >= current_date - interval '14' day  -- Cover full week + buffer
 **Only partition if each partition will have ~1M+ rows.**
 
 Common use cases:
-- `partition_by = ['block_month']` for large event tables
+- `properties = { "partitioned_by": "ARRAY['block_date']" }` for daily partitions
+- `properties = { "partitioned_by": "ARRAY['block_month']" }` for large event tables
 - Monthly transfers, swaps, liquidity events
 
 Small tables: partitioning hurts more than helps.
@@ -204,10 +205,27 @@ Small tables: partitioning hurts more than helps.
 
 **If partitioned, ALWAYS include partition column in `unique_key`.**
 
+**Example (partitioned table model):**
 ```sql
 {{ config(
-    unique_key = ['block_month', 'tx_hash', 'evt_index']  -- ✅ includes partition column
-    , partition_by = ['block_month']
+    alias = 'daily_transaction_summary'
+    , materialized = 'table'
+    , properties = {
+        "partitioned_by": "ARRAY['block_date']"
+    }
+) }}
+```
+
+**Example (partitioned incremental model):**
+```sql
+{{ config(
+    alias = 'monthly_dex_swaps'
+    , materialized = 'incremental'
+    , incremental_strategy = 'merge'
+    , unique_key = ['block_month', 'tx_hash', 'evt_index']  -- ✅ includes partition column
+    , properties = {
+        "partitioned_by": "ARRAY['block_month']"
+    }
 ) }}
 ```
 
