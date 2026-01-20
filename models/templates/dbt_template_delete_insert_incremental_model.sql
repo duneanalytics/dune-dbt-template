@@ -1,11 +1,3 @@
-{#
-    key notes on delete+insert model:
-    - file_format defaults to delta (TODO: confirm this is dune hive metastore setting)
-        - when providing file_format config to model, dbt fails on unable to support 'format' property
-    - incremental_predicates filter the DELETE operation on the target table for better performance
-        - this limits the rows scanned during the delete phase to match the source filter window
-#}
-
 {{ config(
     alias = 'dbt_template_delete_insert_incremental_model'
     , materialized = 'incremental'
