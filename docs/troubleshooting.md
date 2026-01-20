@@ -160,10 +160,10 @@ You must **manually drop the table** before running the full refresh.
 **Option 1: Use the provided Python script**
 ```bash
 # Drop a single table
-uv run python scripts/drop_table.py --schema your_schema_name --table your_table_name
+uv run python scripts/drop_tables.py --schema your_schema_name --table your_table_name
 
 # Drop with target specification
-uv run python scripts/drop_table.py --schema your_schema_name --table your_table_name --target dev
+uv run python scripts/drop_tables.py --schema your_schema_name --table your_table_name --target dev
 ```
 
 **Option 2: Use any Trino client**
@@ -293,4 +293,3 @@ git push
 - [Getting Started](getting-started.md) - Initial setup
 - [Development Workflow](development-workflow.md) - Development process
 - [Testing](testing.md) - Test requirements
-

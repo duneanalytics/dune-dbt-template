@@ -121,16 +121,16 @@ columns:
 
 ```bash
 # Test all models
-dbt test
+uv run dbt test
 
 # Test specific model
-dbt test --select my_model
+uv run dbt test --select my_model
 
 # Test specific model and downstream
-dbt test --select my_model+
+uv run dbt test --select my_model+
 
 # Run and test in sequence
-dbt run --select my_model && dbt test --select my_model
+uv run dbt run --select my_model && uv run dbt test --select my_model
 ```
 
 ## Why These Tests?
@@ -155,4 +155,3 @@ To fix test failures:
 
 - [dbt Best Practices](dbt-best-practices.md) - NULL handling in unique keys
 - [CI/CD](cicd.md) - How tests run in GitHub Actions
-

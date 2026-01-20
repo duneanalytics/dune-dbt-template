@@ -106,7 +106,7 @@ If this repo was created from the dune-dbt-template, you can pull in updates:
 
 **Set up upstream (one-time):**
 ```bash
-git remote add upstream https://github.com/YOUR_ORG/dune-dbt-template.git
+git remote add upstream https://github.com/duneanalytics/dune-dbt-template.git
 git fetch upstream
 ```
 
@@ -128,4 +128,3 @@ git push origin main
 - Read [Development Workflow](development-workflow.md) to learn the recommended process
 - Review [dbt Best Practices](dbt-best-practices.md) for repo-specific patterns
 - Check [SQL Style Guide](sql-style-guide.md) for formatting standards
-
