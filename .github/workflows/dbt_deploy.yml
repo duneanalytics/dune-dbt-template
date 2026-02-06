@@ -1,18 +1,20 @@
 name: dbt deploy
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'models/**'
-      - 'macros/**'
-      - 'dbt_project.yml'
-      - 'profiles.yml'
-      - 'packages.yml'
-      - '.github/workflows/dbt_deploy.yml'
-  schedule:
-    - cron: '0 0 1 * *'  # Run monthly on the 1st to refresh manifest artifact (90-day retention)
+  # NOTE: Push and schedule triggers are disabled by default. Uncomment to enable standard CI workflows
+  # Check the README.md to make sure you understand the credit costs associated with running dbt.
+  # push:
+  #   branches:
+  #     - main
+  #   paths:
+  #     - 'models/**'
+  #     - 'macros/**'
+  #     - 'dbt_project.yml'
+  #     - 'profiles.yml'
+  #     - 'packages.yml'
+  #     - '.github/workflows/dbt_deploy.yml'
+  # schedule:
+  #   - cron: '0 0 1 * *'  # Run monthly on the 1st to refresh manifest artifact (90-day retention)
   workflow_dispatch:  # Allow manual triggers
 
 concurrency:
@@ -23,12 +25,12 @@ jobs:
   dbt-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    
+
     env:
       DUNE_API_KEY: ${{ secrets.DUNE_API_KEY }}
       DUNE_TEAM_NAME: ${{ vars.DUNE_TEAM_NAME || 'dune' }}  # Set as GitHub Variable or defaults to 'dune'
       DBT_TARGET: prod  # All dbt commands will use the prod target from profiles.yml
-    
+
     steps:
       - name: Check out code
         uses: actions/checkout@v4

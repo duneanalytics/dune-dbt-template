@@ -1,15 +1,17 @@
 name: dbt CI
 
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      - 'models/**'
-      - 'macros/**'
-      - 'dbt_project.yml'
-      - 'profiles.yml'
-      - 'packages.yml'
-      - '.github/workflows/dbt_ci.yml'
+# NOTE: Pull request CI jobs are disabled by default. Uncomment to enable standard CI workflows
+# Check the README.md to make sure you understand the credit costs associated with running dbt.
+# on:
+#   pull_request:
+#     types: [opened, synchronize, reopened]
+#     paths:
+#       - 'models/**'
+#       - 'macros/**'
+#       - 'dbt_project.yml'
+#       - 'profiles.yml'
+#       - 'packages.yml'
+#       - '.github/workflows/dbt_ci.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -19,12 +21,12 @@ jobs:
   dbt-ci:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    
+
     env:
       DUNE_API_KEY: ${{ secrets.DUNE_API_KEY }}
       DUNE_TEAM_NAME: ${{ vars.DUNE_TEAM_NAME || 'dune' }}  # Set as GitHub Variable or defaults to 'dune'
       DEV_SCHEMA_SUFFIX: pr${{ github.event.pull_request.number }}
-    
+
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -86,7 +88,7 @@ jobs:
 
       - name: Test modified models (after full refresh)
         run: uv run dbt test --select state:modified --state ./state
-  
+
       - name: Run modified incremental models (incremental run)
         run: uv run dbt run --select state:modified,config.materialized:incremental --state ./state
 

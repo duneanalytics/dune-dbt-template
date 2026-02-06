@@ -6,6 +6,18 @@ A dbt project template for Dune using Trino and uv for Python package management
 
 [![Latest Release](https://img.shields.io/github/v/release/duneanalytics/dune-dbt-template?label=latest%20release)](https://github.com/duneanalytics/dune-dbt-template/releases) | [CHANGELOG](CHANGELOG.md)
 
+## ⚠️ NOTE ⚠️
+
+Running dbt models on Dune from automated pipelines can quickly consume a lot of credits on Dune.
+We have disabled the CI workflows in this repo by default to prevent accidents.
+Please check the **[Development Workflow](docs/development-workflow.md)** doc for more information.
+
+When you're ready to enable automated dbt runs on PRs, pushes to main, or a schedule, uncomment the triggers in the github workflow files:
+
+- [Pull Request CI](./.github/workflows/dbt_ci.yml)
+- [Deploy on merge](./.github/workflows/dbt_deploy.yml)
+- [Scheduled incremental runs](./.github/workflows/dbt_prod.yml)
+
 ## 📚 Documentation
 
 **New to this repo?** See the [docs/](docs/) directory for complete guides:
@@ -29,15 +41,15 @@ uv sync
 
 **Required variables:**
 
-| Variable | Description | Where to Get |
-|----------|-------------|--------------|
-| `DUNE_API_KEY` | Your Dune API key for authentication | [dune.com/settings/api](https://dune.com/settings/api) |
-| `DUNE_TEAM_NAME` | Your team name (determines schema where models are written) | Your Dune team name |
+| Variable         | Description                                                 | Where to Get                                           |
+| ---------------- | ----------------------------------------------------------- | ------------------------------------------------------ |
+| `DUNE_API_KEY`   | Your Dune API key for authentication                        | [dune.com/settings/api](https://dune.com/settings/api) |
+| `DUNE_TEAM_NAME` | Your team name (determines schema where models are written) | Your Dune team name                                    |
 
 **Optional variables:**
 
-| Variable | Description | Default |
-|----------|-------------|---------|
+| Variable            | Description                                                 | Default                    |
+| ------------------- | ----------------------------------------------------------- | -------------------------- |
 | `DEV_SCHEMA_SUFFIX` | Personal dev schema suffix (creates `{team}__tmp_{suffix}`) | None (uses `{team}__tmp_`) |
 
 See [Getting Started](docs/getting-started.md#2-set-environment-variables) for multiple options to set these variables (shell profile, session export, or inline).
@@ -54,12 +66,14 @@ uv run dbt test      # Run tests
 ### Target Configuration
 
 This project uses dbt targets to control **schema naming**, not API endpoints:
+
 - Both `dev` and `prod` targets connect to the **same production API** (`trino.api.dune.com`)
 - Target names control where models are written:
   - **`dev` target** (default): Writes to `{team}__tmp_` schemas (safe for development)
   - **`prod` target**: Writes to `{team}` schemas (production tables)
 
 **Local development** uses `dev` target by default. To test with prod target locally:
+
 ```bash
 uv run dbt run --target prod  # Use prod schema naming
 ```
@@ -81,6 +95,7 @@ DEV_SCHEMA_SUFFIX=your_name uv run dbt run
 ```
 
 To disable suffix after using it:
+
 ```bash
 unset DEV_SCHEMA_SUFFIX
 ```
@@ -127,13 +142,13 @@ select * from dune.dune__tmp_.dbt_template_view_model
 
 ## Model Templates
 
-| Type | File | Use Case |
-|------|------|----------|
-| View | `dbt_template_view_model.sql` | Lightweight, always fresh |
-| Table | `dbt_template_table_model.sql` | Static snapshots |
-| Incremental (Merge) | `dbt_template_merge_incremental_model.sql` | Efficient updates via merge |
+| Type                        | File                                               | Use Case                            |
+| --------------------------- | -------------------------------------------------- | ----------------------------------- |
+| View                        | `dbt_template_view_model.sql`                      | Lightweight, always fresh           |
+| Table                       | `dbt_template_table_model.sql`                     | Static snapshots                    |
+| Incremental (Merge)         | `dbt_template_merge_incremental_model.sql`         | Efficient updates via merge         |
 | Incremental (Delete+Insert) | `dbt_template_delete_insert_incremental_model.sql` | Efficient updates via delete+insert |
-| Incremental (Append) | `dbt_template_append_incremental_model.sql` | Append-only with deduplication |
+| Incremental (Append)        | `dbt_template_append_incremental_model.sql`        | Append-only with deduplication      |
 
 All templates are in `models/templates/`.
 
@@ -146,6 +161,7 @@ Runs on every PR. Enforces branch is up-to-date with main, then runs and tests m
 **Target:** Uses `dev` target with `DEV_SCHEMA_SUFFIX=pr{number}` for isolated testing
 
 **Steps:**
+
 1. Enforces branch is up-to-date with main
 2. Runs modified models with full refresh
 3. Tests modified models
@@ -161,6 +177,7 @@ Runs hourly on main branch. Uses state comparison to only full refresh modified 
 **Target:** Sets `DBT_TARGET: prod` to write to production schemas (`{team}`)
 
 **Steps:**
+
 1. Downloads previous manifest (if exists)
 2. **If state exists:** Runs modified models with full refresh and tests
 3. Runs all models (handles incremental logic)
@@ -173,16 +190,19 @@ Runs hourly on main branch. Uses state comparison to only full refresh modified 
 ### GitHub Setup
 
 **Required:**
+
 1. Add Secret: `DUNE_API_KEY` (Settings → Secrets and variables → Actions → Secrets)
 2. Add Variable: `DUNE_TEAM_NAME` (Settings → Secrets and variables → Actions → Variables)
    - Optional, defaults to `'dune'` if not set
 
 **Recommended:**
+
 1. **Public repos:** Require approval for outside contributor workflows (Settings → Actions → General → Fork pull request workflows)
    - Protects secrets from unauthorized access
    - See [SETUP_FOR_NEW_TEAMS.md](SETUP_FOR_NEW_TEAMS.md#fork-pull-request-workflow-permissions-required-for-public-repos) for details
 
 **Email notifications:**
+
 1. Enable workflow notifications: Profile → Settings → Notifications → Actions → "Notify me for failed workflows only"
 2. Verify email address is set
 3. Watch repository: Click "Watch" (any level works, even "Participating and @mentions")
@@ -190,6 +210,7 @@ Runs hourly on main branch. Uses state comparison to only full refresh modified 
 ## Troubleshooting
 
 **Environment variables not set:**
+
 ```bash
 # Verify variables are set
 env | grep DUNE_API_KEY
@@ -201,16 +222,19 @@ export DUNE_TEAM_NAME=your_team_name
 ```
 
 **Connection errors:**
+
 ```bash
 uv run dbt debug  # Test connection and check for errors
 ```
 
 **dbt_utils not found:**
+
 ```bash
 uv run dbt deps
 ```
 
 **Dependency issues:**
+
 ```bash
 uv sync --reinstall
 ```
@@ -235,12 +259,12 @@ dbt_project.yml  # Project configuration
 
 The `get_custom_schema.sql` macro determines where models are written based on the dbt target:
 
-| Target | DEV_SCHEMA_SUFFIX | Schema Name | Use Case |
-|--------|-------------------|-------------|----------|
-| `prod` | (any) | `{team}` | Production tables |
-| `dev` | Not set | `{team}__tmp_` | Local development |
-| `dev` | Set to `pr123` | `{team}__tmp_pr123` | CI/CD per PR |
-| `dev` | Set to `alice` | `{team}__tmp_alice` | Personal dev space |
+| Target | DEV_SCHEMA_SUFFIX | Schema Name         | Use Case           |
+| ------ | ----------------- | ------------------- | ------------------ |
+| `prod` | (any)             | `{team}`            | Production tables  |
+| `dev`  | Not set           | `{team}__tmp_`      | Local development  |
+| `dev`  | Set to `pr123`    | `{team}__tmp_pr123` | CI/CD per PR       |
+| `dev`  | Set to `alice`    | `{team}__tmp_alice` | Personal dev space |
 
 This ensures safe isolation between development and production environments.
 

@@ -4,13 +4,13 @@ Continuous integration and deployment via GitHub Actions.
 
 ## GitHub-Hosted Runners
 
-This template uses **GitHub-hosted runners** (`ubuntu-latest`) to execute CI/CD workflows. 
+This template uses **GitHub-hosted runners** (`ubuntu-latest`) to execute CI/CD workflows.
 
 GitHub provides and manages these runners - no infrastructure setup required on your end.
 
 ## Pull Request Workflow (CI)
 
-**Trigger:** Every pull request  
+**Trigger:** Every pull request
 **File:** `.github/workflows/dbt_run.yml`
 
 ### What It Does
@@ -37,6 +37,7 @@ This is set via `DEV_SCHEMA_SUFFIX=pr{number}` environment variable.
 ### How to Pass CI
 
 ✅ **Keep branch updated:**
+
 ```bash
 git fetch origin
 git merge origin/main
@@ -44,6 +45,7 @@ git push
 ```
 
 ✅ **Test locally before pushing:**
+
 ```bash
 uv run dbt run --select modified_model --full-refresh
 uv run dbt test --select modified_model
@@ -53,8 +55,8 @@ uv run dbt test --select modified_model
 
 ## Production Workflow
 
-**Trigger:** Manual (schedule disabled by default)  
-**File:** `.github/workflows/dbt_prod.yml`  
+**Trigger:** Manual (schedule disabled by default)
+**File:** `.github/workflows/dbt_prod.yml`
 **Branch:** `main` only
 
 ⚠️ **Note:** The hourly schedule is **disabled by default** in the template. Teams must uncomment the schedule in the workflow file when ready to enable automatic hourly runs.
@@ -79,6 +81,7 @@ The workflow saves `manifest.json` after each run and downloads it next time to 
 ### Target Configuration
 
 Production runs use `DBT_TARGET=prod`:
+
 - Writes to `{team}` schemas (production)
 - No suffix applied
 
@@ -102,12 +105,12 @@ Optional - defaults to `'dune'` if not set.
 
 To receive failure alerts:
 
-1. **Enable notifications:**  
+1. **Enable notifications:**
    Profile → Settings → Notifications → Actions → "Notify me for failed workflows only"
 
 2. **Verify email address** in GitHub settings
 
-3. **Watch repository:**  
+3. **Watch repository:**
    Click "Watch" button (any level works, even "Participating and @mentions")
 
 ## Workflow Triggers
@@ -115,12 +118,14 @@ To receive failure alerts:
 ### Pull Request Workflow
 
 Runs when:
+
 - PR opened, synchronized, or reopened
 - Changes to: `models/`, `macros/`, `dbt_project.yml`, `profiles.yml`, `packages.yml`, workflow file
 
 ### Production Workflow
 
 Runs when:
+
 - Hourly (cron: `'0 * * * *'`) - **disabled by default, must be uncommented**
 - Manual trigger via GitHub Actions UI
 
@@ -137,6 +142,7 @@ git push
 ### Test Failures
 
 Check test output in GitHub Actions logs:
+
 ```
 dbt test output → specific test name → error message
 ```
@@ -151,6 +157,7 @@ Query the model in Dune to investigate.
 ### Timeout
 
 Workflows timeout after 30 minutes. If hitting this:
+
 - Optimize query performance
 - Add date filters during development
 - Consider breaking large models into smaller pieces
@@ -160,6 +167,7 @@ Workflows timeout after 30 minutes. If hitting this:
 Go to Actions tab → "dbt prod orchestration" → "Run workflow"
 
 Use this for:
+
 - Testing deployment changes
 - Forcing a full refresh
 - Running outside normal schedule
@@ -169,4 +177,3 @@ Use this for:
 - [Development Workflow](development-workflow.md) - Local development process
 - [Testing](testing.md) - Test requirements
 - [Troubleshooting](troubleshooting.md) - Common issues
-
