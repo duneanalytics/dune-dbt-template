@@ -34,6 +34,8 @@ models:
     +materialized: view       # fallback default, materialized should be overriden in model specific configs
     +view_security: invoker   # required security setting for views
     +post-hook:
+      - sql: "{{ set_table_visibility(this, model.config.materialized) }}"
+        transaction: true
       - sql: "{{ optimize_table(this, model.config.materialized) }}"
         transaction: true
       - sql: "{{ vacuum_table(this, model.config.materialized) }}"

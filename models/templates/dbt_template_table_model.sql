@@ -1,6 +1,7 @@
 {{ config(
     alias = 'dbt_template_table_model'
     , materialized = 'table'
+    -- , dune_public = true  -- uncomment to make this table publicly visible on Dune
     , properties = {
         "partitioned_by": "ARRAY['block_date']"
     }
