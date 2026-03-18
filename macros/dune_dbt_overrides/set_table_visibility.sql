@@ -7,11 +7,10 @@
   ])
 {%- endmacro -%}
 
-{# post-hook that keeps dune.public in sync on incremental (non-full-refresh) runs where no CREATE TABLE is issued. Setting visibility for views is not supported at this time. #}
+{# post-hook that sets dune.public via ALTER TABLE on every table/incremental run (prod only). Setting visibility for views is not supported at this time. #}
 {% macro set_table_visibility(this, materialization) %}
 {%- if target.name == 'prod'
-    and materialization == 'incremental'
-    and not flags.FULL_REFRESH -%}
+    and materialization in ('table', 'incremental') -%}
   {%- set dune_public = config.get('meta', {}).get('dune', {}).get('public', false) -%}
   {%- set properties = {'dune.public': 'true' if dune_public else 'false'} -%}
   ALTER TABLE {{ this }}
