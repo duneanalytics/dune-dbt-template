@@ -7,7 +7,7 @@
   ])
 {%- endmacro -%}
 
-{# post-hook that keeps dune.public in sync on incremental (non-full-refresh) runs where no CREATE TABLE is issued #}
+{# post-hook that keeps dune.public in sync on incremental (non-full-refresh) runs where no CREATE TABLE is issued. Setting visibility for views is not supported at this time. #}
 {% macro set_table_visibility(this, materialization) %}
 {%- if target.name == 'prod'
     and materialization == 'incremental'

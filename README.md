@@ -182,7 +182,7 @@ models:
           public: true
 ```
 
-Visibility is only applied in the `prod` target and has no effect in development. Views are not supported.
+Visibility is only applied in the `prod` target and has no effect in development. Setting visibility for views is not supported at this time.
 
 ## GitHub Actions
 
