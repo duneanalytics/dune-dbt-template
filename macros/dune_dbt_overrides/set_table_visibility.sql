@@ -15,7 +15,7 @@
   incremental case where no CREATE is issued (INSERT/MERGE only).
 
   Configure per model via config():
-    , dune_public = true   -- make table publicly visible on Dune
+    , dune_public = true   -- make table publicly accessible on Dune (visible and queryable by anyone)
     , dune_public = false  -- (default) keep table private
 
   Or set for an entire folder in dbt_project.yml:
