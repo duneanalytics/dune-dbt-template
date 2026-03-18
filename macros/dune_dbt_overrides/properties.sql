@@ -1,20 +1,4 @@
-{#
-  Override of the dbt-trino adapter's properties() macro to inject dune.public
-  into extra_properties at CREATE TABLE time.
-
-  Configure per model via config():
-    , dune_public = true   -- make table publicly visible on Dune
-    , dune_public = false  -- (default) keep table private
-
-  Or set for an entire folder in dbt_project.yml:
-    models:
-      my_project:
-        public_models:
-          +dune_public: true
-
-  Only runs in prod. On incremental (non-full-refresh) runs, set_table_visibility
-  handles it via ALTER TABLE instead.
-#}
+{# Override of the dbt-trino adapter's properties() macro to inject dune.public into extra_properties at CREATE TABLE time. #}
 {% macro properties(temporary=False) %}
   {%- set _properties = config.get('properties') -%}
   {%- set table_format = config.get('table_format') -%}
@@ -58,8 +42,7 @@
     {%- endif -%}
   {%- endif -%}
 
-  {#-- Inject dune.public into extra_properties at CREATE time (prod only) --#}
-  {%- set dune_public = config.get('dune_public') -%}
+  {%- set dune_public = config.get('meta', {}).get('dune', {}).get('public') -%}
   {%- if dune_public is not none and target.name == 'prod' -%}
     {%- set visibility_value = 'true' if dune_public else 'false' -%}
     {%- set extra_props_sql = "map_from_entries(ARRAY[ROW('dune.public', '" ~ visibility_value ~ "')])" -%}

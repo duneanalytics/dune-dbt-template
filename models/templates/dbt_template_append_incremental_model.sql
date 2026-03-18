@@ -9,7 +9,7 @@
     alias = 'dbt_template_append_incremental_model'
     , materialized = 'incremental'
     , incremental_strategy = 'append'
-    , dune_public = false
+    , meta = {"dune": {"public": false}}
     , properties = {
         "partitioned_by": "ARRAY['block_date']"
     }

@@ -4,7 +4,7 @@
     , incremental_strategy = 'merge'
     , unique_key = ['block_number', 'block_date']
     , incremental_predicates = ["DBT_INTERNAL_DEST.block_date >= now() - interval '1' day"]
-    , dune_public = false
+    , meta = {"dune": {"public": false}}
     , properties = {
         "partitioned_by": "ARRAY['block_date']"
     }
