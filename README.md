@@ -160,7 +160,11 @@ By default, all tables are **private** — only your team can query them. To mak
 {{ config(
     alias = 'my_model'
     , materialized = 'table'
-    , meta = {"dune": {"public": true}}
+    , meta = {
+        "dune": {
+            "public": true
+        }
+    }
     , properties = {
         "partitioned_by": "ARRAY['block_date']"
     }

@@ -1,7 +1,11 @@
 {{ config(
     alias = 'dbt_template_table_model'
     , materialized = 'table'
-    , meta = {"dune": {"public": false}}
+    , meta = {
+        "dune": {
+            "public": false
+        }
+    }
     , properties = {
         "partitioned_by": "ARRAY['block_date']"
     }
