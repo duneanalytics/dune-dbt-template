@@ -1,4 +1,4 @@
-# Table Visibility (Public / Private)
+# Dune Table Visibility
 
 Tables created via dbt are **private** by default — only your team can query them. You can make a table publicly queryable by anyone on Dune by setting the `dune.public` property.
 

@@ -1,4 +1,4 @@
-# Datashare
+# Dune Datashares
 
 Datashare syncs Dune tables to external data warehouses (Snowflake, BigQuery) so downstream consumers can query the data outside Dune.
 
@@ -127,8 +127,26 @@ You can run this directly via any Trino-compatible client without dbt.
 To remove a table from datashare:
 
 ```sql
-ALTER TABLE dune.<schema>.<table> EXECUTE datashare_delete
+ALTER TABLE dune.<schema>.<table> EXECUTE delete_datashare
 ```
+
+### Monitoring
+
+Query the datashare system tables to check sync status and history:
+
+```sql
+-- List all active datashare registrations for your team
+SELECT * FROM dune.datashare.table_syncs
+
+-- View sync run history (status, duration, time window)
+SELECT * FROM dune.datashare.table_sync_runs
+```
+
+`table_syncs` shows your registered datashares: source table, target type/region, share status, last successful sync time.
+
+`table_sync_runs` shows individual sync executions: status, duration, time window, whether it was a full refresh.
+
+Results are scoped to your team.
 
 ## Manual sync via run-operation
 
