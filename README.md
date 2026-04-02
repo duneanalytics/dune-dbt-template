@@ -26,6 +26,7 @@ When you're ready to enable automated dbt runs on PRs, pushes to main, or a sche
 - **[Development Workflow](docs/development-workflow.md)** - How to develop models
 - **[dbt Best Practices](docs/dbt-best-practices.md)** - Patterns and configurations
 - **[Dune Table Visibility](docs/dune-table-visibility.md)** - Control public/private access to tables
+- **[Dune Datashares](docs/dune-datashares.md)** - Sync tables to external warehouses
 - **[Testing](docs/testing.md)** - Test requirements
 - **[CI/CD](docs/cicd.md)** - GitHub Actions workflows
 - **[Troubleshooting](docs/troubleshooting.md)** - Common issues
@@ -150,8 +151,15 @@ select * from dune.dune__tmp_.dbt_template_view_model
 | Incremental (Merge)         | `dbt_template_merge_incremental_model.sql`         | Efficient updates via merge         |
 | Incremental (Delete+Insert) | `dbt_template_delete_insert_incremental_model.sql` | Efficient updates via delete+insert |
 | Incremental (Append)        | `dbt_template_append_incremental_model.sql`        | Append-only with deduplication      |
+| Incremental (Datashare)     | `dbt_template_datashare_incremental_model.sql`     | Merge model with datashare sync     |
 
 All templates are in `models/templates/`.
+
+## Datashares
+
+This template includes an opt-in datashare post-hook for `table` and `incremental` models. To enable it on a model, set `meta.datashare.enabled: true` and provide the sync window fields in the model config.
+
+See [docs/dune-datashares.md](docs/dune-datashares.md) for the full setup, `run-operation` examples, monitoring queries, and cleanup commands.
 
 ## Table Visibility
 
