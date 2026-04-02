@@ -73,37 +73,6 @@ select ...
 
 View visibility is **not supported** by the post-hook macro at this time.
 
-## Combining with datashare
-
-A model can be both public and datashare-enabled. Both use `meta`:
-
-```sql
-{% set time_start = "now() - interval '1' day" if is_incremental() else "timestamp '2026-01-01'" %}
-
-{{ config(
-    alias = 'public_datashared_model'
-    , materialized = 'incremental'
-    , incremental_strategy = 'merge'
-    , unique_key = ['block_date', 'id']
-    , meta = {
-        "dune": {
-            "public": true
-        },
-        "datashare": {
-            "enabled": true,
-            "time_column": "block_date",
-            "time_start": time_start,
-            "time_end": "now()"
-        }
-    }
-    , properties = {
-        "partitioned_by": "ARRAY['block_date']"
-    }
-) }}
-
-select ...
-```
-
 ## Changing visibility on existing tables
 
 Via any Trino client or `dbt run-operation`:
