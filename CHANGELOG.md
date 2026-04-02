@@ -2,6 +2,17 @@
 
 All notable changes to this template will be documented in this file.
 
+## [v1.4.0] - 2026-04-02
+
+### Added
+- **Datashare support**: Macro and prod-only post-hook to run `ALTER TABLE ... EXECUTE datashare(...)`, opt-in example model, and setup/monitoring documentation (#61)
+- **Table visibility control**: `set_table_visibility` post-hook and `meta.dune.public` (sugar over `extra_properties`) for public vs private tables (#57)
+- **Table visibility documentation**: `docs/dune-table-visibility.md` covering folder-level config, prod-only behavior, combining with datashare, and raw SQL fallbacks (#60)
+
+### Changed
+- **GitHub Actions**: PR, push, and schedule triggers commented out by default; workflows remain runnable via `workflow_dispatch` with documentation for re-enabling (#53)
+- **Docs and templates**: Documentation refresh, leaner template models, and minor macro/workflow tweaks (#52)
+
 ## [v1.3.0] - 2026-01-05
 
 ### Changed
