@@ -155,7 +155,7 @@ All templates are in `models/templates/`.
 
 ## Table Visibility
 
-By default, all tables are **private** — only your team can query them. To make a table publicly accessible (visible and queryable by anyone on Dune), set `meta.dune.public: true` in the model config:
+By default, all tables are **private** — only your team can see or query them. Setting `meta.dune.public: true` makes a table accessible to all Dune users: queryable via the SQL editor, API, dashboards, and visible in the data explorer.
 
 ```sql
 {{ config(
@@ -166,24 +166,12 @@ By default, all tables are **private** — only your team can query them. To mak
             "public": true
         }
     }
-    , properties = {
-        "partitioned_by": "ARRAY['block_date']"
-    }
 ) }}
 ```
 
-To make all models in a folder public, set it in `dbt_project.yml`:
+Visibility is only applied in the `prod` target and has no effect in development. Views are not supported at this time.
 
-```yaml
-models:
-  my_project:
-    public_models:
-      +meta:
-        dune:
-          public: true
-```
-
-Visibility is only applied in the `prod` target and has no effect in development. Setting visibility for views is not supported at this time.
+See **[Dune Table Visibility](docs/dune-table-visibility.md)** for folder-level config, incremental models, and raw SQL reference.
 
 ## GitHub Actions
 
