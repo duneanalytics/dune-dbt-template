@@ -1,6 +1,8 @@
 # Dune Table Visibility
 
-Control whether a table is visible in Dune's data explorer using the `meta.dune.public` config.
+Control whether a table is accessible to other Dune users using the `meta.dune.public` config.
+
+By default, tables created by dbt are **private** — only your team can see or query them. Public tables are accessible to all Dune users: they appear in the data explorer, can be queried via the SQL editor or API, and can be referenced in other users' queries and dashboards.
 
 For the full SQL reference, see the [official Dune docs on Table Visibility](https://docs.dune.com/api-reference/connectors/sql-operations#table-visibility).
 
@@ -28,8 +30,8 @@ The `set_table_visibility` post-hook runs `ALTER TABLE ... SET PROPERTIES extra_
 
 | `meta.dune.public` | Visibility |
 |---|---|
-| `true` | Public — visible to all Dune users in data explorer |
-| `false` or absent | Private (default) — only visible to your team |
+| `true` | Public — queryable by all Dune users, visible in data explorer, SQL editor, API |
+| `false` or absent | Private (default) — only accessible to your team |
 
 Visibility is only applied in the **`prod` target** — it has no effect in development.
 
