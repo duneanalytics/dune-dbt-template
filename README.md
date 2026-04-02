@@ -13,6 +13,8 @@ A dbt project template for Dune using Trino and uv for Python package management
 - **[Getting Started](docs/getting-started.md)** - Initial setup for new developers
 - **[Development Workflow](docs/development-workflow.md)** - How to develop models
 - **[dbt Best Practices](docs/dbt-best-practices.md)** - Patterns and configurations
+- **[Datashare](docs/datashare.md)** - Sync tables to external warehouses (Snowflake, BigQuery)
+- **[Table Visibility](docs/table-visibility.md)** - Control public/private access to tables
 - **[Testing](docs/testing.md)** - Test requirements
 - **[CI/CD](docs/cicd.md)** - GitHub Actions workflows
 - **[Troubleshooting](docs/troubleshooting.md)** - Common issues
