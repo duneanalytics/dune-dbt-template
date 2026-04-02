@@ -25,6 +25,7 @@ When you're ready to enable automated dbt runs on PRs, pushes to main, or a sche
 - **[Getting Started](docs/getting-started.md)** - Initial setup for new developers
 - **[Development Workflow](docs/development-workflow.md)** - How to develop models
 - **[dbt Best Practices](docs/dbt-best-practices.md)** - Patterns and configurations
+- **[Dune Table Visibility](docs/dune-table-visibility.md)** - Control public/private access to tables
 - **[Dune Datashares](docs/dune-datashares.md)** - Sync tables to external warehouses
 - **[Testing](docs/testing.md)** - Test requirements
 - **[CI/CD](docs/cicd.md)** - GitHub Actions workflows
@@ -162,7 +163,7 @@ See [docs/dune-datashares.md](docs/dune-datashares.md) for the full setup, `run-
 
 ## Table Visibility
 
-By default, all tables are **private** — only your team can query them. To make a table publicly accessible (visible and queryable by anyone on Dune), set `meta.dune.public: true` in the model config:
+By default, all tables are **private** — only your team can see or query them. Setting `meta.dune.public: true` makes a table accessible to all Dune users: queryable via the SQL editor, API, dashboards, and visible in the data explorer.
 
 ```sql
 {{ config(
@@ -173,24 +174,12 @@ By default, all tables are **private** — only your team can query them. To mak
             "public": true
         }
     }
-    , properties = {
-        "partitioned_by": "ARRAY['block_date']"
-    }
 ) }}
 ```
 
-To make all models in a folder public, set it in `dbt_project.yml`:
+Visibility is only applied in the `prod` target and has no effect in development. Views are not supported at this time.
 
-```yaml
-models:
-  my_project:
-    public_models:
-      +meta:
-        dune:
-          public: true
-```
-
-Visibility is only applied in the `prod` target and has no effect in development. Setting visibility for views is not supported at this time.
+See **[Dune Table Visibility](docs/dune-table-visibility.md)** for folder-level config, incremental models, and raw SQL reference.
 
 ## GitHub Actions
 
