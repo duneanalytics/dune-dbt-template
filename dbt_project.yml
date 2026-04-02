@@ -40,3 +40,5 @@ models:
         transaction: true
       - sql: "{{ vacuum_table(this, model.config.materialized) }}"
         transaction: true
+      - sql: "{{ datashare_trigger_sync() }}"
+        transaction: true
