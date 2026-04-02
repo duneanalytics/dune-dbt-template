@@ -25,6 +25,7 @@ When you're ready to enable automated dbt runs on PRs, pushes to main, or a sche
 - **[Getting Started](docs/getting-started.md)** - Initial setup for new developers
 - **[Development Workflow](docs/development-workflow.md)** - How to develop models
 - **[dbt Best Practices](docs/dbt-best-practices.md)** - Patterns and configurations
+- **[Dune Table Visibility](docs/dune-table-visibility.md)** - Control public/private access to tables
 - **[Testing](docs/testing.md)** - Test requirements
 - **[CI/CD](docs/cicd.md)** - GitHub Actions workflows
 - **[Troubleshooting](docs/troubleshooting.md)** - Common issues
