@@ -1,30 +1,54 @@
 # Dune Table Visibility
 
-Tables created via dbt are **private** by default — only your team can query them. You can make a table publicly queryable by anyone on Dune by setting the `dune.public` property.
+Control whether a table is visible in Dune's data explorer using the `meta.dune.public` config.
 
-For the full SQL reference, see [Table Visibility](https://docs.dune.com/api-reference/connectors/sql-operations#table-visibility) in the Dune docs.
+For the full SQL reference, see the [official Dune docs on Table Visibility](https://docs.dune.com/api-reference/connectors/sql-operations#table-visibility).
+
+Implemented by [`macros/dune_dbt_overrides/set_table_visibility.sql`](../macros/dune_dbt_overrides/set_table_visibility.sql).
 
 ## dbt config
 
-Set `dune.public` via `extra_properties` in your model's `properties` config:
+Set `meta.dune.public` in your model config:
 
 ```sql
 {{ config(
     alias = 'my_public_table'
     , materialized = 'table'
-    , properties = {
-        "extra_properties": "MAP_FROM_ENTRIES(ARRAY[ROW('dune.public', 'true')])"
+    , meta = {
+        "dune": {
+            "public": true
+        }
     }
 ) }}
 
 select ...
 ```
 
-The property is set at table creation time and persists across incremental runs.
+The `set_table_visibility` post-hook runs `ALTER TABLE ... SET PROPERTIES extra_properties = ...` automatically after each model run.
+
+| `meta.dune.public` | Visibility |
+|---|---|
+| `true` | Public — visible to all Dune users in data explorer |
+| `false` or absent | Private (default) — only visible to your team |
+
+Visibility is only applied in the **`prod` target** — it has no effect in development.
+
+## Folder-level config
+
+Make all models in a folder public via `dbt_project.yml`:
+
+```yaml
+models:
+  your_project:
+    public_models:
+      +meta:
+        dune:
+          public: true
+```
 
 ## Incremental models
 
-Same config — set on initial creation, persists:
+Same config — the post-hook runs on every `dbt run`, so visibility is kept in sync:
 
 ```sql
 {{ config(
@@ -32,9 +56,13 @@ Same config — set on initial creation, persists:
     , materialized = 'incremental'
     , incremental_strategy = 'merge'
     , unique_key = ['block_date', 'tx_hash']
+    , meta = {
+        "dune": {
+            "public": true
+        }
+    }
     , properties = {
-        "partitioned_by": "ARRAY['block_date']",
-        "extra_properties": "MAP_FROM_ENTRIES(ARRAY[ROW('dune.public', 'true')])"
+        "partitioned_by": "ARRAY['block_date']"
     }
 ) }}
 
@@ -43,15 +71,34 @@ select ...
 
 ## Views
 
-Views use a post-hook instead of table properties:
+View visibility is **not supported** by the post-hook macro at this time.
+
+## Combining with datashare
+
+A model can be both public and datashare-enabled. Both use `meta`:
 
 ```sql
+{% set time_start = "now() - interval '1' day" if is_incremental() else "timestamp '2026-01-01'" %}
+
 {{ config(
-    alias = 'public_view'
-    , materialized = 'view'
-    , post_hook = [
-        "CALL _internal.alter_view_properties('{{ this.schema }}', '{{ this.name }}', MAP_FROM_ENTRIES(ARRAY[ROW('dune.public', 'true')]))"
-    ]
+    alias = 'public_datashared_model'
+    , materialized = 'incremental'
+    , incremental_strategy = 'merge'
+    , unique_key = ['block_date', 'id']
+    , meta = {
+        "dune": {
+            "public": true
+        },
+        "datashare": {
+            "enabled": true,
+            "time_column": "block_date",
+            "time_start": time_start,
+            "time_end": "now()"
+        }
+    }
+    , properties = {
+        "partitioned_by": "ARRAY['block_date']"
+    }
 ) }}
 
 select ...
