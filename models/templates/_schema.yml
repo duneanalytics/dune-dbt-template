@@ -64,3 +64,18 @@ models:
         description: "The date of the block"
       - name: total_tx_per_block
         description: "The total number of transactions per block"
+  - name: dbt_template_datashare_incremental_model
+    description: "A starter dbt incremental model using merge strategy with datashare sync enabled"
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - block_number
+              - block_date
+    columns:
+      - name: block_number
+        description: "The unique block number in the sync window"
+      - name: block_date
+        description: "The date used for datashare sync windows"
+      - name: total_tx_per_block
+        description: "The total number of transactions per block"
