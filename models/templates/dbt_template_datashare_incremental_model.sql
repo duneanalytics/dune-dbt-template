@@ -1,12 +1,3 @@
-{#
-    Window expressions are static SQL strings, `{% set %}` so they can be reused
-    in the config meta (captured at parse time) AND in the SQL body (rendered at
-    execution time).
-
-    Do NOT make these values depend on is_incremental() - the config() meta dict
-    is frozen at parse time, when is_incremental() always returns false. The
-    post-hook picks between time_start / time_start_incremental at execution time.
-#}
 {%- set incremental_time_start = "current_date - interval '1' day" -%}
 {%- set full_refresh_time_start = "current_date - interval '2' day" -%}
 {%- set time_end = "current_date + interval '1' day" -%}
