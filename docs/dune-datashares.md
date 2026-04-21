@@ -37,8 +37,9 @@ Views are skipped.
 Add `meta.datashare` to a `table` or `incremental` model:
 
 ```sql
-{% set time_start = "current_date - interval '1' day" if is_incremental() else "current_date - interval '2' day" %}
-{% set time_end = "current_date + interval '1' day" %}
+{%- set time_start_incremental = "current_date - interval '1' day" -%}
+{%- set time_start = "current_date - interval '2' day" -%}
+{%- set time_end = "current_date + interval '1' day" -%}
 
 {{ config(
     alias = 'my_datashared_model'
@@ -50,6 +51,7 @@ Add `meta.datashare` to a `table` or `incremental` model:
             "enabled": true,
             "time_column": "block_date",
             "time_start": time_start,
+            "time_start_incremental": time_start_incremental,
             "time_end": time_end
         }
     }
@@ -60,6 +62,17 @@ select ...
 
 The included example model in this repo follows this pattern.
 
+### Why Two time_start Values
+
+The `meta` dict is captured by dbt at **parse time**, before any adapter state is known. `is_incremental()` always returns `false` during parsing, so a `{% set time_start = "..." if is_incremental() else "..." %}` preamble (as used in older examples and upstream docs) silently freezes the value to the `else` branch on every run.
+
+To actually vary the sync window by run type, provide two static expressions in `meta.datashare`:
+
+- `time_start` — used on **full-refresh** syncs (first run, `--full-refresh`, fingerprint/stamp change)
+- `time_start_incremental` — used on **normal incremental** syncs (optional; falls back to `time_start` if omitted)
+
+The post-hook macro evaluates `is_incremental()` at execution time and picks the correct value.
+
 ## Configuration Reference
 
 All datashare config lives under `meta.datashare` in the model `config()` block.
@@ -68,11 +81,12 @@ All datashare config lives under `meta.datashare` in the model `config()` block.
 | --- | --- | --- | --- |
 | `enabled` | Yes | `boolean` | Must be `true` to trigger sync. |
 | `time_column` | Yes | `string` | Column used to define the sync window. |
-| `time_start` | Yes | `string` | SQL expression for the start of the sync window. |
+| `time_start` | Yes | `string` | SQL expression for the start of the full-refresh sync window. |
+| `time_start_incremental` | No | `string` | SQL expression for incremental runs. Falls back to `time_start` if omitted. |
 | `time_end` | No | `string` | SQL expression for the end of the sync window. Defaults to `now()`. |
 | `unique_key_columns` | No | `list[string]` | Row identity columns. Falls back to the model `unique_key` if omitted. |
 
-`time_start` and `time_end` are SQL expressions, not literal timestamps. The macro wraps them in `CAST(... AS VARCHAR)` before calling the table procedure.
+All time expressions are SQL, not literal timestamps. The macro wraps them in `CAST(... AS VARCHAR)` before calling the table procedure.
 
 Keep the sync window aligned with the `time_column` granularity. For example, if `time_column` is a `date`, use date-based expressions like `current_date - interval '1' day`, not hour-based timestamp windows.
 
