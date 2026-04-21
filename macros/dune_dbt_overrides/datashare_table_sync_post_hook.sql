@@ -70,12 +70,23 @@ ALTER TABLE {{ catalog_name }}.{{ schema_name }}.{{ table_name }} EXECUTE datash
         {{ log('Skipping datashare sync for ' ~ this.schema ~ '.' ~ this.identifier ~ ': datashare post-hook only runs on the prod target.', info=True) }}
         {{ return('') }}
     {%- endif -%}
+    {#- Resolve time_start at execution time. meta.datashare is frozen at parse
+        time and is_incremental() always returns false during parsing, so the
+        picker must live here. meta.datashare.time_start_incremental is optional
+        and falls back to meta.datashare.time_start. -#}
+    {%- set meta = model.config.get('meta', {}) -%}
+    {%- set datashare = meta.get('datashare') if meta is mapping else none -%}
+    {%- set resolved_time_start = none -%}
+    {%- if datashare is mapping and is_incremental() -%}
+        {%- set resolved_time_start = datashare.get('time_start_incremental') -%}
+    {%- endif -%}
     {{ return(_datashare_table_sync_sql(
         schema_name=this.schema,
         table_name=this.identifier,
-        meta=model.config.get('meta', {}),
+        meta=meta,
         materialized=model.config.materialized,
         unique_key=model.config.get('unique_key'),
+        time_start=resolved_time_start,
         full_refresh=(not is_incremental())
     ) or '') }}
 {%- endmacro -%}
@@ -109,13 +120,25 @@ ALTER TABLE {{ catalog_name }}.{{ schema_name }}.{{ table_name }} EXECUTE datash
     {%- set table_name = node.alias if node.alias is not none else node.name -%}
     {%- set is_full_refresh = materialized == 'table' or full_refresh is sameas true -%}
 
+    {#- Mirror the post-hook picker: when running an incremental sync and no
+        explicit time_start was passed, prefer meta.datashare.time_start_incremental
+        if set. Falls back to meta.datashare.time_start otherwise. -#}
+    {%- set resolved_time_start = time_start -%}
+    {%- if resolved_time_start is none and not is_full_refresh -%}
+        {%- set meta = node_config.get('meta', {}) -%}
+        {%- set datashare = meta.get('datashare') if meta is mapping else none -%}
+        {%- if datashare is mapping -%}
+            {%- set resolved_time_start = datashare.get('time_start_incremental') -%}
+        {%- endif -%}
+    {%- endif -%}
+
     {%- set sql = _datashare_table_sync_sql(
         schema_name=node.schema,
         table_name=table_name,
         meta=node_config.get('meta', {}),
         materialized=materialized,
         unique_key=node_config.get('unique_key'),
-        time_start=time_start,
+        time_start=resolved_time_start,
         time_end=time_end,
         full_refresh=is_full_refresh,
         catalog_name=node.database or target.database
