@@ -37,8 +37,8 @@ Views are skipped.
 Add `meta.datashare` to a `table` or `incremental` model:
 
 ```sql
-{%- set incremental_time_start = "current_date - interval '1' day" -%}
-{%- set full_refresh_time_start = "current_date - interval '2' day" -%}
+{%- set time_start_incremental = "current_date - interval '1' day" -%}
+{%- set time_start = "current_date - interval '2' day" -%}
 {%- set time_end = "current_date + interval '1' day" -%}
 
 {{ config(
@@ -50,8 +50,8 @@ Add `meta.datashare` to a `table` or `incremental` model:
         "datashare": {
             "enabled": true,
             "time_column": "block_date",
-            "time_start": full_refresh_time_start,
-            "time_start_incremental": incremental_time_start,
+            "time_start": time_start,
+            "time_start_incremental": time_start_incremental,
             "time_end": time_end
         }
     }
