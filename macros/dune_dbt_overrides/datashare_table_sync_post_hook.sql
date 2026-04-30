@@ -51,6 +51,10 @@
     {%- set time_column = datashare.get('time_column') -%}
     {%- set resolved_time_start = time_start if time_start is not none else datashare.get('time_start') -%}
     {%- set resolved_time_end = time_end if time_end is not none else datashare.get('time_end', 'now()') -%}
+    {%- set target_type = datashare.get('target_type') -%}
+    {%- set target_region = datashare.get('target_region') -%}
+    {%- set include_target_type = target_type is not none and target_type | string | trim != '' -%}
+    {%- set include_target_region = target_region is not none and target_region | string | trim != '' -%}
 
     {%- set sql -%}
 ALTER TABLE {{ catalog_name }}.{{ schema_name }}.{{ table_name }} EXECUTE datashare(
@@ -59,6 +63,12 @@ ALTER TABLE {{ catalog_name }}.{{ schema_name }}.{{ table_name }} EXECUTE datash
     time_start => {{ _datashare_optional_time_sql(resolved_time_start) }},
     time_end => {{ _datashare_optional_time_sql(resolved_time_end) }},
     full_refresh => {{ 'true' if full_refresh else 'false' }}
+{%- if include_target_type -%}
+    , target_type => {{ _datashare_sql_string(target_type) }}
+{%- endif -%}
+{%- if include_target_region -%}
+    , target_region => {{ _datashare_sql_string(target_region) }}
+{%- endif -%}
 )
     {%- endset -%}
     {{ log('datashare sync preview for ' ~ model_ref ~ ':\n' ~ sql, info=True) }}
