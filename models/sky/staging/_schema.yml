@@ -39,3 +39,48 @@ models:
       - name: asset_ref
       - name: amount
       - name: block_date
+
+  - name: stg_sparklend__steps
+    description: |
+      SparkLend Pool events (Supply, Withdraw, Borrow, Repay) modeled as 2-step trades.
+      Each event emits a Transfer of the underlying reserve plus a Mint/Burn of the
+      matching aToken / variable-debt position. Position-side rows use synthetic
+      asset_refs (`sparklend_a_<reserve>` / `sparklend_v_<reserve>`).
+    columns:
+      - name: trade_id
+      - name: trade_step_id
+        data_tests:
+          - unique
+          - not_null
+      - name: step_index
+      - name: step_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Mint', 'Burn', 'Transfer', 'Fee']
+      - name: category
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Supply', 'Withdraw', 'Borrow', 'Repay']
+      - name: settlement
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Sync', 'Async']
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Settled', 'InTransit', 'Failed']
+      - name: ts
+      - name: ts_settled
+      - name: refs
+      - name: source_domain_id
+      - name: source_account_ref
+      - name: target_domain_id
+      - name: target_account_ref
+      - name: asset_domain_id
+      - name: asset_ref
+      - name: amount
+      - name: block_date

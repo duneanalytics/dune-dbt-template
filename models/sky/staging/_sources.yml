@@ -5,3 +5,11 @@ sources:
     description: Curated ERC-20 transfers on Ethereum (Dune-managed source).
     tables:
       - name: evt_Transfer
+
+  - name: spark_protocol_ethereum
+    description: SparkLend (spark_protocol) decoded Pool events on Ethereum.
+    tables:
+      - name: pool_evt_supply
+      - name: pool_evt_withdraw
+      - name: pool_evt_borrow
+      - name: pool_evt_repay

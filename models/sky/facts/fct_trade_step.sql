@@ -30,8 +30,27 @@ with all_steps as (
         , amount
         , block_date
     from {{ ref('stg_ethereum__erc20_transfers') }}
-    -- union all
-    -- select ... from {{ "{{ ref('stg_sparklend__steps') }}" }}
+    union all
+    select
+        trade_id
+        , trade_step_id
+        , step_index
+        , step_type
+        , category
+        , settlement
+        , status
+        , ts
+        , ts_settled
+        , refs
+        , source_domain_id
+        , source_account_ref
+        , target_domain_id
+        , target_account_ref
+        , asset_domain_id
+        , asset_ref
+        , amount
+        , block_date
+    from {{ ref('stg_sparklend__steps') }}
     -- union all
     -- select ... from {{ "{{ ref('stg_morpho__steps') }}" }}
 )
