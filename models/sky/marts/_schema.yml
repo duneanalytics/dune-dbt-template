@@ -1,0 +1,66 @@
+version: 2
+
+models:
+  - name: fct_balance_sheet_delta
+    description: |
+      Double-entry deltas. Every settled TradeStep produces 1 or 2 rows here:
+      Transfer/Fee → asset moves source→target. Mint → source asset+, target liability+.
+      Burn → source asset−, target liability−. Sum to derive any balance sheet.
+    columns:
+      - name: delta_id
+        data_tests:
+          - unique
+          - not_null
+      - name: trade_step_id
+        data_tests:
+          - not_null
+      - name: account_id
+        data_tests:
+          - not_null
+      - name: asset_id
+        data_tests:
+          - not_null
+      - name: balance_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Asset', 'Liability']
+      - name: amount_delta
+        data_tests:
+          - not_null
+      - name: counterparty_account_id
+      - name: ts
+      - name: block_date
+
+  - name: mart_balance_sheet_snapshot
+    description: Daily end-of-day balances per (account, asset, balance_type). Built by running-sum over fct_balance_sheet_delta.
+    columns:
+      - name: snapshot_date
+        data_tests:
+          - not_null
+      - name: account_id
+        data_tests:
+          - not_null
+      - name: asset_id
+        data_tests:
+          - not_null
+      - name: balance_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Asset', 'Liability']
+      - name: amount
+
+  - name: dim_account_discovered
+    description: Counterparties surfaced by fct_trade_step that aren't yet labelled in dim_account_seed. Used to drive the labelling backlog.
+    columns:
+      - name: account_id
+        data_tests:
+          - unique
+          - not_null
+      - name: domain_id
+        data_tests:
+          - not_null
+      - name: account_ref
+        data_tests:
+          - not_null

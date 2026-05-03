@@ -1,0 +1,92 @@
+version: 2
+
+models:
+  - name: fct_trade_step
+    description: Source-of-truth ledger. Every protocol's staging model unions in here. Balance sheets derive from this table.
+    columns:
+      - name: trade_step_id
+        data_tests:
+          - unique
+          - not_null
+      - name: trade_id
+        data_tests:
+          - not_null
+      - name: step_index
+        data_tests:
+          - not_null
+      - name: step_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Mint', 'Burn', 'Transfer', 'Fee']
+      - name: category
+      - name: settlement
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Sync', 'Async']
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Settled', 'InTransit', 'Failed']
+      - name: ts
+        data_tests:
+          - not_null
+      - name: ts_settled
+      - name: refs
+      - name: source_account_id
+      - name: source_domain_id
+      - name: source_account_ref
+      - name: target_account_id
+      - name: target_domain_id
+      - name: target_account_ref
+      - name: asset_id
+        data_tests:
+          - not_null
+      - name: asset_domain_id
+      - name: asset_ref
+      - name: amount
+        data_tests:
+          - not_null
+      - name: block_date
+        data_tests:
+          - not_null
+
+  - name: fct_trade
+    description: Header-level view of trades, derived from fct_trade_step.
+    columns:
+      - name: trade_id
+        data_tests:
+          - unique
+          - not_null
+      - name: category
+      - name: settlement
+      - name: status
+      - name: ts
+      - name: ts_settled
+      - name: refs
+      - name: step_count
+
+  - name: fct_price
+    description: Time-series asset prices. Sources include Dune oracle feeds, vault share prices, RWA NAV.
+    columns:
+      - name: asset_id
+        data_tests:
+          - not_null
+      - name: ts
+        data_tests:
+          - not_null
+      - name: type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Primary', 'Oracle', 'AMM', 'CEX']
+      - name: reference_asset_id
+      - name: value
+        data_tests:
+          - not_null
+      - name: ref
+      - name: block_date
+        data_tests:
+          - not_null

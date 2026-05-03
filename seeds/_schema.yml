@@ -1,0 +1,115 @@
+version: 2
+
+seeds:
+  - name: dim_entity
+    description: Reference list of entities (Sky-ecosystem actors and external counterparties).
+    config:
+      column_types:
+        entity_id: varchar
+        name: varchar
+        parent_entity_id: varchar
+        external: boolean
+        type: varchar
+    columns:
+      - name: entity_id
+        description: Stable slug used as the primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: name
+        description: Human-readable name.
+        data_tests:
+          - not_null
+      - name: parent_entity_id
+        description: Optional parent entity (e.g. SparkLend → Spark).
+      - name: external
+        description: True if outside the Sky ecosystem.
+        data_tests:
+          - not_null
+      - name: type
+        description: Sky, Prime, Halo, Exchange, Fintech, Custodian, Bank, OTCDesk, User.
+        data_tests:
+          - not_null
+
+  - name: dim_domain
+    description: Reference list of settlement venues (blockchains, exchanges, OTC desks, custodians).
+    config:
+      column_types:
+        domain_id: varchar
+        name: varchar
+        type: varchar
+    columns:
+      - name: domain_id
+        description: Stable slug used as the primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: name
+        data_tests:
+          - not_null
+      - name: type
+        description: Blockchain, Exchange, OTCDesk, Halo, Fintech, Bank, etc.
+        data_tests:
+          - not_null
+
+  - name: dim_account_seed
+    description: Hand-curated entity ↔ account_ref mappings. Auto-discovered accounts (no entity_id yet) are added downstream in dim_account.
+    config:
+      column_types:
+        name: varchar
+        purpose: varchar
+        entity_id: varchar
+        domain_id: varchar
+        account_ref: varchar
+    columns:
+      - name: account_ref
+        description: Domain-specific account identifier (address on a chain, account id at a CEX).
+        data_tests:
+          - not_null
+      - name: domain_id
+        data_tests:
+          - not_null
+      - name: entity_id
+        description: Owning entity. Nullable in the auto-discovery flow but required in the seed.
+        data_tests:
+          - not_null
+      - name: purpose
+        description: Treasury, Allocation, Operations, etc.
+      - name: name
+
+  - name: dim_asset_seed
+    description: Hand-curated assets per domain. Includes pricing/decimals metadata.
+    config:
+      column_types:
+        domain_id: varchar
+        name: varchar
+        type: varchar
+        asset_ref: varchar
+        decimals: integer
+        underlying_asset_id: varchar
+        loan_amount: double
+        loan_start: timestamp
+        loan_end: timestamp
+    columns:
+      - name: asset_ref
+        description: Token address (chain) or asset id (off-chain venue).
+        data_tests:
+          - not_null
+      - name: domain_id
+        data_tests:
+          - not_null
+      - name: name
+        data_tests:
+          - not_null
+      - name: type
+        description: Fungible or NonFungible.
+        data_tests:
+          - not_null
+      - name: decimals
+        description: Decimal precision for amount normalization (e.g. 6 for USDC, 18 for ETH).
+      - name: underlying_asset_id
+        description: For wrappers/vault shares, the redeemable asset. For NFT loans, the loan asset.
+      - name: loan_amount
+        description: Face value for fixed-rate loans (NonFungible).
+      - name: loan_start
+      - name: loan_end

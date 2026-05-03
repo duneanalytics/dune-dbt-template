@@ -1,0 +1,7 @@
+version: 2
+
+sources:
+  - name: prices
+    description: Dune-curated price feeds.
+    tables:
+      - name: usd

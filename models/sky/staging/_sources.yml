@@ -1,0 +1,7 @@
+version: 2
+
+sources:
+  - name: erc20_ethereum
+    description: Curated ERC-20 transfers on Ethereum (Dune-managed source).
+    tables:
+      - name: evt_Transfer

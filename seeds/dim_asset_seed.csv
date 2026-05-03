@@ -1,0 +1,13 @@
+domain_id,name,type,asset_ref,decimals,underlying_asset_id,loan_amount,loan_start,loan_end
+ethereum,USDC,Fungible,0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48,6,,,,
+ethereum,USDT,Fungible,0xdac17f958d2ee523a2206206994597c13d831ec7,6,,,,
+ethereum,DAI,Fungible,0x6b175474e89094c44da98b954eedeac495271d0f,18,,,,
+ethereum,USDS,Fungible,0xdc035d45d973e3ec169d2276ddab16f1e407384f,18,,,,
+ethereum,sUSDS,Fungible,0xa3931d71877c0e7a3148cb7eb4463524fec27fbd,18,,,,
+ethereum,PYUSD,Fungible,0x6c3ea9036406852006290770bedfcaba0e23a0e8,6,,,,
+ethereum,WETH,Fungible,0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2,18,,,,
+ethereum,wstETH,Fungible,0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0,18,,,,
+base,USDC,Fungible,0x833589fcd6edb6e08f4c7c32d4f71b54bda02913,6,,,,
+base,USDS,Fungible,0x820c137fa70c8691f0e44dc420a5e53c168921dc,18,,,,
+binance,USDC,Fungible,USDC,6,,,,
+binance,USDT,Fungible,USDT,6,,,,

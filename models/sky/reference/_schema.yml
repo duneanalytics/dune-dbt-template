@@ -1,0 +1,64 @@
+version: 2
+
+models:
+  - name: dim_asset
+    description: Per-domain asset registry. Surrogate `asset_id` keys all fact tables.
+    columns:
+      - name: asset_id
+        description: sha256 hash of (domain_id, asset_ref).
+        data_tests:
+          - unique
+          - not_null
+      - name: domain_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_domain')
+                field: domain_id
+      - name: asset_ref
+        description: Token contract address or off-chain asset id.
+        data_tests:
+          - not_null
+      - name: name
+        data_tests:
+          - not_null
+      - name: type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Fungible', 'NonFungible']
+      - name: decimals
+      - name: underlying_asset_id
+      - name: loan_amount
+      - name: loan_start
+      - name: loan_end
+
+  - name: dim_account
+    description: Per-domain account registry. Auto-discovers counterparties from fct_trade_step that aren't in dim_account_seed.
+    columns:
+      - name: account_id
+        description: sha256 hash of (domain_id, account_ref).
+        data_tests:
+          - unique
+          - not_null
+      - name: domain_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_domain')
+                field: domain_id
+      - name: account_ref
+        data_tests:
+          - not_null
+      - name: name
+      - name: purpose
+      - name: entity_id
+        description: Owning entity. Auto-discovered rows fall back to 'user' until labelled.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_entity')
+                field: entity_id

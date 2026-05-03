@@ -1,5 +1,5 @@
 # dbt profile for Dune API connection
-dbt_template:
+testing_dune_dbt:
   target: dev
   outputs:
     dev:

@@ -1,0 +1,16 @@
+domain_id,name,type
+ethereum,Ethereum,Blockchain
+base,Base,Blockchain
+arbitrum,Arbitrum,Blockchain
+optimism,Optimism,Blockchain
+plasma,Plasma,Blockchain
+binance,Binance,Exchange
+coinbase,Coinbase,Exchange
+b2c2,B2C2,OTCDesk
+selini,Selini,OTCDesk
+paxos,Paxos,Fintech
+circle,Circle,Fintech
+anchorage,Anchorage,Halo
+arkis,Arkis,Halo
+river,River,Halo
+galaxy,Galaxy,Halo

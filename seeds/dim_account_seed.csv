@@ -1,0 +1,7 @@
+name,purpose,entity_id,domain_id,account_ref
+Spark Treasury (Eth),Treasury,spark,ethereum,0x3300f198988e4c9c63f75df86de36421f06af8c4
+Spark ALM Proxy,Allocation,spark,ethereum,0x1601843c5e9bcea4001fb7e1f1aa1b733aa14ce5
+Sky DAO Vow,Treasury,sky,ethereum,0xa950524441892a31ebddf91d3ceefa04bf454466
+Sky PSM USDC,Allocation,sky,ethereum,0xf6e72db5454dd049d0788e411b06cfaf16853042
+SparkLend Pool,Operations,sparklend,ethereum,0xc13e21b648a5ee794902342038ff3adab66be987
+Spark Savings sUSDS,Operations,spark,ethereum,0xa3931d71877c0e7a3148cb7eb4463524fec27fbd

@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: stg_ethereum__erc20_transfers
+    description: |
+      Worked example: ERC-20 Transfer events involving a known dim_account row become 1-step Transfer trades.
+      Other staging models (sparklend, psm, morpho, binance, ...) should produce the same shape and feed fct_trade_step.
+    columns:
+      - name: trade_id
+      - name: trade_step_id
+        data_tests:
+          - unique
+          - not_null
+      - name: step_index
+      - name: step_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Mint', 'Burn', 'Transfer', 'Fee']
+      - name: category
+      - name: settlement
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Sync', 'Async']
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Settled', 'InTransit', 'Failed']
+      - name: ts
+      - name: ts_settled
+      - name: refs
+      - name: source_domain_id
+      - name: source_account_ref
+      - name: target_domain_id
+      - name: target_account_ref
+      - name: asset_domain_id
+      - name: asset_ref
+      - name: amount
+      - name: block_date
