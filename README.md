@@ -201,7 +201,7 @@ Runs on every PR. Enforces branch is up-to-date with main, then runs and tests m
 
 ### Production Workflow (Scheduled)
 
-Runs hourly on main branch. Uses state comparison to only full refresh modified models, then runs normal cadence runs.
+Runs on a schedule on main branch (disabled by default; daily cron is the safe default — see [docs/cicd.md](docs/cicd.md) for the daily-vs-hourly cost tradeoff with datashares). Uses state comparison to only full refresh modified models, then runs normal cadence runs.
 
 **Target:** Sets `DBT_TARGET: prod` to write to production schemas (`{team}`)
 
