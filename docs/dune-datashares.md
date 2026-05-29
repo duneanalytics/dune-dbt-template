@@ -90,6 +90,55 @@ All time expressions are SQL, not literal timestamps. The macro wraps them in `C
 
 Keep the sync window aligned with the `time_column` granularity. For example, if `time_column` is a `date`, use date-based expressions like `current_date - interval '1' day`, not hour-based timestamp windows.
 
+## Cadence and sync windows
+
+The `time_start_incremental` → `time_end` window and your dbt **run cadence** are not independent knobs. Every incremental sync issues a `MERGE INTO` against the destination table, which re-reads the destination data covered by that window. On **S3 Export** targets where the destination bucket is in a different region from Trino, each run pays cross-region transfer for the entire window.
+
+The cost amplification factor is:
+
+```
+remote_read_multiplier = MERGE read window / run cadence
+```
+
+Examples:
+
+| Cadence | `time_column` | Incremental window         | Multiplier | Notes |
+| ------- | ------------- | -------------------------- | ---------- | ----- |
+| Daily   | `date`        | `interval '1' day`         | 1x         | Safe default. The included example model uses this shape. |
+| Hourly  | `timestamp`   | `interval '2' hour`        | 2x         | Use only when `time_column` is timestamp-granular and the destination is partitioned/prunable on it. |
+| Hourly  | `date`        | `interval '1' day`         | 24x        | **Cost trap.** Every hourly run re-reads the full day's partition from the destination. |
+
+Rules of thumb:
+
+- Date-granularity `time_column` (e.g. `block_date`) → **daily cadence**. Sub-day windows on a date column do nothing useful: the smallest prunable unit is one day.
+- Hourly (or sub-day) cadence → **timestamp** `time_column` AND an hour-sized incremental window. Confirm the destination table is partitioned on that timestamp so MERGE actually prunes.
+- The `time_start` (full-refresh) value can stay wider than `time_start_incremental` — full refreshes are infrequent, the multiplier only applies to incremental cadence.
+
+### Hourly cadence example
+
+```sql
+{%- set time_start_incremental = "current_timestamp - interval '2' hour" -%}
+{%- set time_start = "current_timestamp - interval '1' day" -%}
+{%- set time_end = "current_timestamp" -%}
+
+{{ config(
+    materialized = 'incremental',
+    incremental_strategy = 'merge',
+    unique_key = ['tx_hash'],
+    incremental_predicates = ["DBT_INTERNAL_DEST.block_time >= " ~ time_start_incremental],
+    meta = {
+        "datashare": {
+            "enabled": true,
+            "time_column": "block_time",
+            "time_start": time_start,
+            "time_start_incremental": time_start_incremental,
+            "time_end": time_end
+        }
+    },
+    properties = {"partitioned_by": "ARRAY['date(block_time)']"}
+) }}
+```
+
 ## Full Refresh Behavior
 
 The macro determines `full_refresh` automatically:

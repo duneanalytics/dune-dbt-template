@@ -2,8 +2,13 @@ name: dbt prod incremental
 
 on:
   # schedule:
-  #   - cron: '0 * * * *'  # Run every hour at minute 0
-  # NOTE: Schedule is disabled by default. Uncomment when ready to enable hourly production runs.
+  #   - cron: '0 6 * * *'  # Daily at 06:00 UTC. Safe default for date-granularity datashare models.
+  #   # - cron: '0 * * * *'  # Hourly. Only safe if your datashare models use a timestamp
+  #                          # `time_column` with an hour-sized incremental window. See
+  #                          # docs/dune-datashares.md "Cadence and sync windows" — a date
+  #                          # `time_column` with hourly cadence re-reads the full day on
+  #                          # every MERGE (24x cross-region read cost on S3 Export).
+  # NOTE: Schedule is disabled by default. Uncomment one cron above when ready.
   # Check the README.md to make sure you understand the credit costs associated with running dbt.
   workflow_dispatch:  # Allow manual triggers
 
