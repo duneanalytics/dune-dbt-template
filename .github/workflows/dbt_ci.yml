@@ -49,13 +49,14 @@ jobs:
         continue-on-error: true
         # Using dawidd6/action-download-artifact instead of actions/download-artifact
         # because the official action only downloads artifacts from the same workflow run,
-        # while we need to download the manifest from the most recent successful dbt_deploy run.
+        # while we need to download the manifest from the most recent completed dbt_deploy run.
         uses: dawidd6/action-download-artifact@v6
         with:
           name: prod-manifest-latest
           path: ./state
           workflow: dbt_deploy.yml
           branch: main
+          workflow_conclusion: completed  # Include failed deploys that still uploaded a current manifest.
           if_no_artifact_found: ignore  # Let our verification step handle the error with detailed message
 
       - name: Verify manifest exists
