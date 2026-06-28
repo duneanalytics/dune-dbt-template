@@ -20,6 +20,39 @@
 {%- endmacro -%}
 
 {#
+    Returns true if an active (non-deleted) datashare sync exists for this table.
+    Scoped to a target only when both target_type and target_region are given,
+    since a partial key would match a different target of the same table.
+    Returns true on probe failure so the caller keeps its is_incremental() behavior.
+#}
+{% macro _datashare_active_sync_exists(schema_name, table_name, target_type=None, target_region=None) %}
+    {%- if not execute -%}
+        {{ return(true) }}
+    {%- endif -%}
+    {%- set has_type = target_type is not none and target_type | string | trim != '' -%}
+    {%- set has_region = target_region is not none and target_region | string | trim != '' -%}
+    {%- set where = [] -%}
+    {%- do where.append('source_schema = ' ~ _datashare_sql_string(schema_name)) -%}
+    {%- do where.append('source_table = ' ~ _datashare_sql_string(table_name)) -%}
+    {%- do where.append('deleted_at IS NULL') -%}
+    {%- if has_type and has_region -%}
+        {%- do where.append('target_type = ' ~ _datashare_sql_string(target_type)) -%}
+        {%- do where.append('target_region = ' ~ _datashare_sql_string(target_region)) -%}
+    {%- endif -%}
+    {%- set probe_sql = 'SELECT count(*) AS c FROM dune.datashare.table_syncs WHERE ' ~ (where | join(' AND ')) -%}
+    {%- set result = none -%}
+    {%- set probe = run_query(probe_sql) -%}
+    {%- if probe is not none and probe.columns | length > 0 and probe.columns[0].values() | length > 0 -%}
+        {%- set result = probe.columns[0].values()[0] -%}
+    {%- endif -%}
+    {%- if result is none -%}
+        {{ log('datashare sync probe for ' ~ schema_name ~ '.' ~ table_name ~ ' returned no rows; assuming sync exists.', info=True) }}
+        {{ return(true) }}
+    {%- endif -%}
+    {{ return(result | int > 0) }}
+{%- endmacro -%}
+
+{#
     Datashare sync macro - generates ALTER TABLE ... EXECUTE datashare() SQL.
     Config reference and usage: docs/dune-datashares.md
 #}
@@ -55,6 +88,15 @@
     {%- set target_region = datashare.get('target_region') -%}
     {%- set include_target_type = target_type is not none and target_type | string | trim != '' -%}
     {%- set include_target_region = target_region is not none and target_region | string | trim != '' -%}
+
+    {#- An incremental sync targets an existing destination via MERGE. If the
+        destination sync was revoked while the source table still exists, dbt
+        builds incrementally but there is nothing to merge into. Force a full
+        refresh when no active sync is registered for this table/target. -#}
+    {%- if not full_refresh and not _datashare_active_sync_exists(schema_name, table_name, target_type, target_region) -%}
+        {{ log('No active datashare sync for ' ~ model_ref ~ '; forcing full_refresh.', info=True) }}
+        {%- set full_refresh = true -%}
+    {%- endif -%}
 
     {%- set sql -%}
 ALTER TABLE {{ catalog_name }}.{{ schema_name }}.{{ table_name }} EXECUTE datashare(

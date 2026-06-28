@@ -1,6 +1,6 @@
 # Dune Datashares
 
-Datashares sync Dune tables to external data warehouses such as Snowflake and BigQuery so downstream consumers can query the data outside Dune.
+Datashares sync your Dune tables to external destinations such as Snowflake, BigQuery, and S3, so you can query the data outside Dune.
 
 ## Prerequisites
 
@@ -77,14 +77,14 @@ The post-hook macro evaluates `is_incremental()` at execution time and picks the
 
 All datashare config lives under `meta.datashare` in the model `config()` block.
 
-| Property | Required | Type | Description |
-| --- | --- | --- | --- |
-| `enabled` | Yes | `boolean` | Must be `true` to trigger sync. |
-| `time_column` | Yes | `string` | Column used to define the sync window. |
-| `time_start` | Yes | `string` | SQL expression for the start of the full-refresh sync window. |
-| `time_start_incremental` | No | `string` | SQL expression for incremental runs. Falls back to `time_start` if omitted. |
-| `time_end` | No | `string` | SQL expression for the end of the sync window. Defaults to `now()`. |
-| `unique_key_columns` | No | `list[string]` | Row identity columns. Falls back to the model `unique_key` if omitted. |
+| Property                 | Required | Type           | Description                                                                 |
+| ------------------------ | -------- | -------------- | --------------------------------------------------------------------------- |
+| `enabled`                | Yes      | `boolean`      | Must be `true` to trigger sync.                                             |
+| `time_column`            | Yes      | `string`       | Column used to define the sync window.                                      |
+| `time_start`             | Yes      | `string`       | SQL expression for the start of the full-refresh sync window.               |
+| `time_start_incremental` | No       | `string`       | SQL expression for incremental runs. Falls back to `time_start` if omitted. |
+| `time_end`               | No       | `string`       | SQL expression for the end of the sync window. Defaults to `now()`.         |
+| `unique_key_columns`     | No       | `list[string]` | Row identity columns. Falls back to the model `unique_key` if omitted.      |
 
 All time expressions are SQL, not literal timestamps. The macro wraps them in `CAST(... AS VARCHAR)` before calling the table procedure.
 
@@ -102,11 +102,11 @@ remote_read_multiplier = MERGE read window / run cadence
 
 Examples:
 
-| Cadence | `time_column` | Incremental window         | Multiplier | Notes |
-| ------- | ------------- | -------------------------- | ---------- | ----- |
-| Daily   | `date`        | `interval '1' day`         | 1x         | Safe default. The included example model uses this shape. |
-| Hourly  | `timestamp`   | `interval '2' hour`        | 2x         | Use only when `time_column` is timestamp-granular and the destination is partitioned/prunable on it. |
-| Hourly  | `date`        | `interval '1' day`         | 24x        | **Cost trap.** Every hourly run re-reads the full day's partition from the destination. |
+| Cadence | `time_column` | Incremental window  | Multiplier | Notes                                                                                                |
+| ------- | ------------- | ------------------- | ---------- | ---------------------------------------------------------------------------------------------------- |
+| Daily   | `date`        | `interval '1' day`  | 1x         | Safe default. The included example model uses this shape.                                            |
+| Hourly  | `timestamp`   | `interval '2' hour` | 2x         | Use only when `time_column` is timestamp-granular and the destination is partitioned/prunable on it. |
+| Hourly  | `date`        | `interval '1' day`  | 24x        | **Cost trap.** Every hourly run re-reads the full day's partition from the destination.              |
 
 Rules of thumb:
 
@@ -143,12 +143,12 @@ Rules of thumb:
 
 The macro determines `full_refresh` automatically:
 
-| Context | `full_refresh` |
-| --- | --- |
-| Incremental post-hook on a normal incremental run | `false` |
-| Incremental post-hook on first run or `--full-refresh` | `true` |
-| Table materialization post-hook | `true` |
-| `run-operation` | `false` unless overridden |
+| Context                                                | `full_refresh`            |
+| ------------------------------------------------------ | ------------------------- |
+| Incremental post-hook on a normal incremental run      | `false`                   |
+| Incremental post-hook on first run or `--full-refresh` | `true`                    |
+| Table materialization post-hook                        | `true`                    |
+| `run-operation`                                        | `false` unless overridden |
 
 ## Generated SQL
 
@@ -224,6 +224,19 @@ Remove a table from datashare with:
 ```sql
 ALTER TABLE dune.<schema>.<table> EXECUTE delete_datashare
 ```
+
+This stops the sync and revokes access to the destination.
+
+## S3 Export
+
+S3 Export delivers your data as an Iceberg table in a Dune-managed S3 bucket. Dune adds a bucket policy to the export bucket which grants an AWS principal you control read access. You can either:
+
+- create an IAM role in your own AWS account with read access to S3 and give Dune that role's ARN, so only that role can read the bucket; or
+- give Dune just your AWS account ID, and Dune grants the whole account access. You can then control which IAM users/roles have access to the S3 bucket by setting the appropriate IAM policy permissions.
+
+You query the data directly from S3 with your own engine (e.g. Athena, Spark, DuckDB, etc.) using that principal, without going through Dune. S3 Export currently supports the **Iceberg** table format. To set up an S3 target, contact Dune with the bucket region you want, and either the IAM role ARN or the AWS account ID to grant read access.
+
+Note that the bucket will be configured with [requester pays](https://docs.aws.amazon.com/AmazonS3/latest/userguide/RequesterPaysBuckets.html), so to read the data you have to set a header on the S3 requests to accept that you will be charged for read requests. Most AWS SDKs have a way to just configure this directly without having to manually set request headers.
 
 ## Example Workflow
 

@@ -20,6 +20,8 @@ concurrency:
 jobs:
   dbt-ci:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 30
 
     env:
