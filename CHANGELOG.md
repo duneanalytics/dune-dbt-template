@@ -5,7 +5,7 @@ All notable changes to this template will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
-- **Datashare `run-operation` could sync dev schemas**: `datashare_trigger_sync_operation` had no target guard, so running it without `--target prod` registered the dev temp schema (`<team>__tmp_<suffix>`) as a real datashare and shipped it to the destination warehouse. It now raises a clear error outside `prod`, naming the schema it would have registered. `dry_run: true` is still permitted on any target, and `allow_non_prod: true` is available as an explicit override.
+- **Datashare `run-operation` could sync dev schemas**: `datashare_trigger_sync_operation` had no target guard, so running it without `--target prod` registered the dev temp schema (`<team>__tmp_<suffix>`) as a real datashare and shipped it to the destination warehouse. It now raises a clear error outside `prod`, naming the schema it would have registered. `dry_run: true` is still permitted on any target, and `allow_prod_only: false` is available as an explicit override.
 - **Datashare docs omitted `--target prod`**: all `run-operation` examples in `docs/dune-datashares.md` now pass `--target prod`, with a note explaining why it matters.
 
 ## [v1.4.0] - 2026-04-02

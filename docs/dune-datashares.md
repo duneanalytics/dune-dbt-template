@@ -202,7 +202,7 @@ full_refresh: true
 
 `model_selector` accepts the model name, alias, fully qualified name, or dbt `unique_id`.
 
-If you need to sync from a non-prod schema deliberately, pass `allow_non_prod: true`. This is not recommended: dev schemas are ephemeral, and once a sync is registered the destination table and view persist under the temp schema name.
+If you need to sync from a non-prod schema deliberately, pass `allow_prod_only: false`. This is not recommended: dev schemas are ephemeral, and once a sync is registered the destination table and view persist under the temp schema name.
 
 ## Monitoring
 
