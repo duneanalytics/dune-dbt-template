@@ -165,12 +165,26 @@ ALTER TABLE {{ catalog_name }}.{{ schema_name }}.{{ table_name }} EXECUTE datash
     {{ return(matches[0]) }}
 {%- endmacro -%}
 
-{% macro datashare_trigger_sync_operation(model_selector, time_start=None, time_end=None, dry_run=False, full_refresh=False) %}
+{% macro datashare_trigger_sync_operation(model_selector, time_start=None, time_end=None, dry_run=False, full_refresh=False, allow_prod_only=True) %}
     {%- set node = _datashare_resolve_model_node(model_selector) -%}
     {%- set node_config = node.config if node.config is mapping else {} -%}
     {%- set materialized = node_config.get('materialized', 'view') -%}
     {%- set table_name = node.alias if node.alias is not none else node.name -%}
     {%- set is_full_refresh = materialized == 'table' or full_refresh is sameas true -%}
+    {%- set is_dry_run = dry_run is sameas true or (dry_run is string and dry_run | lower in ['true', '1', 'yes', 'y']) -%}
+    {%- set allow_prod_only = false if (allow_prod_only is sameas false or (allow_prod_only is string and allow_prod_only | lower in ['false', '0', 'no', 'n'])) else true -%}
+
+    {#- The post-hook guards on target, but this path resolves the schema straight
+        from the manifest, so on a dev target it registers the temp schema as a
+        real datashare and ships it to the destination. Fail loudly rather than
+        skip silently: the caller explicitly asked for a sync. -#}
+    {%- if target.name != 'prod' and allow_prod_only and not is_dry_run -%}
+        {{ exceptions.raise_compiler_error(
+            "Refusing datashare sync for '" ~ model_selector ~ "' on target '" ~ target.name
+            ~ "': the source schema would be '" ~ node.schema ~ "'. Datashare syncs must run against prod."
+            ~ " Re-run with --target prod, or pass dry_run: true to preview the SQL."
+        ) }}
+    {%- endif -%}
 
     {#- Mirror the post-hook picker: when running an incremental sync and no
         explicit time_start was passed, prefer meta.datashare.time_start_incremental
@@ -200,7 +214,6 @@ ALTER TABLE {{ catalog_name }}.{{ schema_name }}.{{ table_name }} EXECUTE datash
         {{ exceptions.raise_compiler_error("Cannot sync " ~ node.schema ~ "." ~ table_name ~ ": model must be incremental or table with meta.datashare.enabled = true.") }}
     {%- endif -%}
 
-    {%- set is_dry_run = dry_run is sameas true or (dry_run is string and dry_run | lower in ['true', '1', 'yes', 'y']) -%}
     {%- if not is_dry_run -%}
         {% do run_query(sql) %}
         {{ log('Executed datashare sync for selector ' ~ model_selector, info=True) }}

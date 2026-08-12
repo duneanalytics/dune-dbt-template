@@ -168,19 +168,23 @@ ALTER TABLE dune.<schema>.<table> EXECUTE datashare(
 
 Use `run-operation` when you want to trigger a sync outside `dbt run`.
 
+**Always pass `--target prod`.** Unlike the post-hook, this path reads the schema straight from the manifest, so on the default `dev` target it would register your temp schema (`<team>__tmp_<suffix>`) as a real datashare and ship it to your destination warehouse. The macro refuses to execute outside `prod` for this reason.
+
 Preview the generated SQL only:
 
 ```bash
-uv run dbt run-operation datashare_trigger_sync_operation --args '
+uv run dbt run-operation datashare_trigger_sync_operation --target prod --args '
 model_selector: dbt_template_datashare_incremental_model
 dry_run: true
 '
 ```
 
+`dry_run: true` is allowed on any target, since it only prints SQL.
+
 Execute a sync:
 
 ```bash
-uv run dbt run-operation datashare_trigger_sync_operation --args '
+uv run dbt run-operation datashare_trigger_sync_operation --target prod --args '
 model_selector: dbt_template_datashare_incremental_model
 time_start: "current_date - interval '\''7'\'' day"
 time_end: "current_date + interval '\''1'\'' day"
@@ -190,13 +194,15 @@ time_end: "current_date + interval '\''1'\'' day"
 Force a full refresh sync:
 
 ```bash
-uv run dbt run-operation datashare_trigger_sync_operation --args '
+uv run dbt run-operation datashare_trigger_sync_operation --target prod --args '
 model_selector: dbt_template_datashare_incremental_model
 full_refresh: true
 '
 ```
 
 `model_selector` accepts the model name, alias, fully qualified name, or dbt `unique_id`.
+
+If you need to sync from a non-prod schema deliberately, pass `allow_prod_only: false`. This is not recommended: dev schemas are ephemeral, and once a sync is registered the destination table and view persist under the temp schema name.
 
 ## Monitoring
 
