@@ -8,21 +8,32 @@ as dbt and drops tables and views based on schema pattern or specific table name
 NOTE: Trino's DROP TABLE command only removes the metastore entry, leaving orphaned
 data in S3. S3 cleanup should be handled separately via scheduled cleanup jobs.
 
+Safety model:
+    Bulk drops (no --table) are only permitted against disposable dev schemas,
+    meaning those starting with DUNE_TEAM_NAME__tmp_. Anything else requires
+    either --table for a single object, or an explicit --allow-bulk-outside-dev
+    plus interactive confirmation. The production schema can never be
+    bulk-dropped. Note that --schema is used as a SQL LIKE pattern, so it is
+    validated against the schemas it actually resolves to.
+
 Usage:
     # Dry run - drop all tables matching DUNE_TEAM_NAME__tmp_* pattern
     python scripts/drop_tables.py
 
-    # Dry run - drop all tables in specific schema
-    python scripts/drop_tables.py --schema my_custom_schema
-
-    # Dry run - drop specific table
-    python scripts/drop_tables.py --table my_table_name --schema my_schema
-
     # Actually execute drops
     python scripts/drop_tables.py --execute
 
-    # Execute drop for specific schema
-    python scripts/drop_tables.py --schema my_schema --execute
+    # Dry run - drop all tables in one dev schema
+    python scripts/drop_tables.py --schema my_team__tmp_pr123
+
+    # Dry run - drop a specific table from any schema
+    python scripts/drop_tables.py --table my_table_name --schema my_schema
+
+    # Execute drop of a specific production table (requires confirmation)
+    python scripts/drop_tables.py --target prod --schema my_team --table my_table --execute
+
+    # Deliberately bulk-drop a non-production, non-dev schema
+    python scripts/drop_tables.py --schema scratch_area --allow-bulk-outside-dev --execute
 """
 
 import argparse
@@ -416,6 +427,40 @@ def drop_tables(
     }
 
 
+DEV_SCHEMA_MARKER = "__tmp_"
+
+
+def dev_schema_prefix(team_name: str) -> str:
+    """
+    Return the prefix shared by every disposable dbt dev schema.
+
+    Args:
+        team_name: Value of DUNE_TEAM_NAME
+
+    Returns:
+        str: Prefix such as 'my_team__tmp_'
+    """
+    return f"{team_name}{DEV_SCHEMA_MARKER}"
+
+
+def is_dev_schema(schema: str, team_name: str) -> bool:
+    """
+    Determine whether a schema is a disposable dev schema.
+
+    Compares against the literal prefix rather than reusing the LIKE pattern.
+    In SQL LIKE an underscore matches any single character, so a pattern-based
+    check would treat schemas like 'my_teamXXtmpY' as dev schemas.
+
+    Args:
+        schema: Concrete schema name as returned by information_schema
+        team_name: Value of DUNE_TEAM_NAME
+
+    Returns:
+        bool: True if the schema is a dev schema
+    """
+    return schema.startswith(dev_schema_prefix(team_name))
+
+
 def main():
     """Main entry point for the script."""
     parser = argparse.ArgumentParser(
@@ -434,6 +479,9 @@ Examples:
 
   # Drop specific dev table (execute)
   python scripts/drop_tables.py --table my_table --schema dune__tmp_jeff --execute
+
+  # Bulk drop outside the dev namespace (BLOCKED unless opted in explicitly)
+  python scripts/drop_tables.py --schema scratch_area --allow-bulk-outside-dev --execute
 
   # Drop specific prod table (dry run - REQUIRES --schema AND --table)
   python scripts/drop_tables.py --target prod --schema dune --table my_table
@@ -474,6 +522,16 @@ Examples:
         "--execute",
         action="store_true",
         help="Execute the drop operations (default is dry-run mode)",
+    )
+
+    parser.add_argument(
+        "--allow-bulk-outside-dev",
+        action="store_true",
+        help=(
+            "Permit a bulk drop against schemas outside the "
+            "{DUNE_TEAM_NAME}__tmp_ dev namespace. Requires interactive "
+            "confirmation. The production schema can never be bulk-dropped."
+        ),
     )
 
     parser.add_argument(
@@ -535,6 +593,30 @@ Examples:
         logger.error("=" * 80)
         return 1
 
+    # Bulk safety. The checks above key off --target, so they are bypassed
+    # entirely whenever --schema is supplied. This check keys off the schema
+    # actually being targeted, which is what determines the blast radius.
+    bulk = not args.table
+    dev_prefix = dev_schema_prefix(dune_team_name)
+
+    if bulk and not schema_or_pattern.startswith(dev_prefix) and not args.allow_bulk_outside_dev:
+        logger.error("=" * 80)
+        logger.error("Error: Refusing to bulk-drop outside the dev namespace")
+        logger.error("=" * 80)
+        logger.error(f"Requested schema or pattern: '{schema_or_pattern}'")
+        logger.error(f"Bulk drops are limited to schemas starting with: '{dev_prefix}'")
+        logger.error("")
+        logger.error("--schema is used as a SQL LIKE pattern, so a value such as '%'")
+        logger.error("would otherwise match every schema this API key can see.")
+        logger.error("")
+        logger.error("To drop a single object from any schema:")
+        logger.error(f"  python scripts/drop_tables.py --schema {schema_or_pattern} --table TABLE_NAME --execute")
+        logger.error("")
+        logger.error("To bulk-drop a non-production schema deliberately:")
+        logger.error(f"  python scripts/drop_tables.py --schema {schema_or_pattern} --allow-bulk-outside-dev --execute")
+        logger.error("=" * 80)
+        return 1
+
     # Display mode
     if dry_run:
         logger.warning("=" * 80)
@@ -585,14 +667,43 @@ Examples:
                 catalog="dune",
             )
 
-        # Production safety check: require confirmation before dropping
-        if is_prod and not dry_run and tables:
+        # Safety net against the schemas that were actually resolved, rather
+        # than against the requested pattern. This is the authoritative check:
+        # it holds regardless of how LIKE expanded the pattern.
+        non_dev_schemas = sorted(
+            {t["schema"] for t in tables if not is_dev_schema(t["schema"], dune_team_name)}
+        )
+
+        if bulk and default_prod_schema in non_dev_schemas:
+            logger.error("=" * 80)
+            logger.error("Error: Refusing to bulk-drop the production schema")
+            logger.error("=" * 80)
+            logger.error(f"'{schema_or_pattern}' resolved to production schema '{default_prod_schema}'.")
+            logger.error("Production objects must be dropped one at a time using --table.")
+            logger.error("=" * 80)
+            return 1
+
+        if bulk and non_dev_schemas and not args.allow_bulk_outside_dev:
+            logger.error("=" * 80)
+            logger.error("Error: Pattern resolved to schemas outside the dev namespace")
+            logger.error("=" * 80)
+            logger.error(f"'{schema_or_pattern}' matched these non-dev schema(s):")
+            for schema_name in non_dev_schemas:
+                logger.error(f"  {schema_name}")
+            logger.error("")
+            logger.error("Re-run with --allow-bulk-outside-dev if this is intended.")
+            logger.error("=" * 80)
+            return 1
+
+        # Require confirmation before dropping anything outside the disposable
+        # dev namespace, whether or not --target prod was passed.
+        if non_dev_schemas and not dry_run and tables:
             logger.warning("")
             logger.warning("=" * 80)
-            logger.warning("⚠️  PRODUCTION DROP WARNING ⚠️")
+            logger.warning("⚠️  DESTRUCTIVE DROP WARNING ⚠️")
             logger.warning("=" * 80)
-            logger.warning(f"You are about to DROP {len(tables)} table(s)/view(s) from PRODUCTION schema(s)!")
-            logger.warning(f"Schema: {schema_or_pattern}")
+            logger.warning(f"You are about to DROP {len(tables)} table(s)/view(s) outside the dev namespace!")
+            logger.warning(f"Non-dev schema(s) affected: {', '.join(non_dev_schemas)}")
             logger.warning("=" * 80)
             logger.warning("")
             

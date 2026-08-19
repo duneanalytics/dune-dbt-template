@@ -12,8 +12,8 @@ This script connects to the Dune Trino API using the same configuration as dbt a
 - **Target environment** (dev or prod)
   - `dev` (default): Drops all tables matching `{DUNE_TEAM_NAME}__tmp_%` pattern (bulk drops allowed)
   - `prod`: **Only allows dropping ONE specific table/view at a time** (requires `--schema` and `--table`)
-- **Schema pattern matching** (dev only - override with `--schema` for custom patterns)
-- **Specific table/view** (drop a single table or view)
+- **Schema pattern matching** (bulk drops are restricted to `{DUNE_TEAM_NAME}__tmp_` schemas)
+- **Specific table/view** (drop a single table or view from any schema)
 
 The script uses `INFORMATION_SCHEMA.TABLES` to find tables and generates appropriate `DROP TABLE` or `DROP VIEW` commands based on the object type.
 
@@ -22,10 +22,12 @@ The script uses `INFORMATION_SCHEMA.TABLES` to find tables and generates appropr
 - S3 cleanup should be handled separately via scheduled cleanup jobs
 - This script does not clean up S3 data (requires separate AWS access)
 
-**Production Safety**: 
-- Prod drops require BOTH `--schema` AND `--table` (no bulk drops)
-- Interactive confirmation is required before executing prod drops
-- This ensures prod drops are deliberate, specific, and rare
+**Safety model**:
+- Bulk drops (no `--table`) are only permitted against disposable dev schemas, meaning those starting with `{DUNE_TEAM_NAME}__tmp_`
+- The production schema can **never** be bulk-dropped. Production objects must be dropped one at a time with `--table`
+- Any drop touching a schema outside the dev namespace requires interactive confirmation
+- Bulk-dropping some other non-production schema is possible, but requires the explicit `--allow-bulk-outside-dev` flag
+- These rules are enforced against the schema being targeted, **not** against the `--target` flag, so they cannot be bypassed by omitting `--target prod`
 
 ### Prerequisites
 
@@ -78,14 +80,25 @@ python scripts/drop_tables.py --target prod --schema dune --table my_table --exe
 
 #### Drop Specific Schema
 
-Drop all tables in a specific schema (exact match):
+Drop all tables in a specific dev schema:
 
 ```bash
 # Dry run - show what would be dropped
-python scripts/drop_tables.py --schema my_custom_schema
+python scripts/drop_tables.py --schema dune__tmp_pr123
 
 # Execute - actually drop the tables
-python scripts/drop_tables.py --schema my_custom_schema --execute
+python scripts/drop_tables.py --schema dune__tmp_pr123 --execute
+```
+
+⚠️ **`--schema` is a SQL LIKE pattern, not a literal name.** A value such as `%` would match every
+schema the API key can see. Because of this, bulk drops are refused unless every schema the pattern
+resolves to sits inside the `{DUNE_TEAM_NAME}__tmp_` dev namespace.
+
+To bulk-drop a non-production schema outside that namespace, opt in explicitly. This still requires
+interactive confirmation, and still refuses to touch the production schema:
+
+```bash
+python scripts/drop_tables.py --schema scratch_area --allow-bulk-outside-dev --execute
 ```
 
 #### Drop Specific Table/View
@@ -120,6 +133,7 @@ python scripts/drop_tables.py --execute --api-key YOUR_API_KEY_HERE
 | `--schema` | Schema name or pattern (overrides `--target`) | None (uses target default) |
 | `--table` | Specific table/view name (requires `--schema`) | None (drops all) |
 | `--execute` | Execute the drop operations (default is dry-run) | False |
+| `--allow-bulk-outside-dev` | Permit a bulk drop outside the `__tmp_` dev namespace. Never permits bulk-dropping the production schema | False |
 | `--api-key` | Dune API key | `DUNE_API_KEY` env var |
 | `--verbose`, `-v` | Enable verbose (debug) logging | False |
 
@@ -154,8 +168,8 @@ python scripts/drop_tables.py --target prod --schema dune --table my_model
 # Drop specific PROD table (execute - REQUIRES CONFIRMATION)
 python scripts/drop_tables.py --target prod --schema dune --table my_model --execute
 
-# Drop with custom pattern (any dev schema starting with 'test_')
-python scripts/drop_tables.py --schema test_% --execute
+# Bulk drop outside the dev namespace (refused without the opt-in flag)
+python scripts/drop_tables.py --schema test_% --allow-bulk-outside-dev --execute
 
 # Verbose output for debugging
 python scripts/drop_tables.py --verbose
@@ -240,8 +254,9 @@ The script uses the following connection configuration (matching `profiles.yml`)
 
 **Pattern Matching Behavior:**
 - Default pattern `{DUNE_TEAM_NAME}__tmp_%` matches all dev schemas
-- The `%` wildcard matches any characters (including none)
-- You can provide custom patterns with `--schema` (e.g., `test_%`, `staging_%`)
+- The `%` wildcard matches any characters (including none), and `_` matches any single character
+- You can provide custom patterns with `--schema` (e.g., `test_%`, `staging_%`), but a bulk drop is refused unless every schema the pattern resolves to is a `__tmp_` dev schema, or `--allow-bulk-outside-dev` is passed
+- Validation happens against the schemas the pattern actually resolved to, so wildcard behaviour cannot widen the blast radius unnoticed
 
 This approach is particularly useful for:
 - Cleaning up all dev schemas at once (including PR schemas)
@@ -251,7 +266,19 @@ This approach is particularly useful for:
 ### Safety Features
 
 - **Dry run by default**: Prevents accidental deletions
+- **Bulk drops scoped to the dev namespace**: Enforced against the resolved schema rather than the `--target` flag, so it cannot be bypassed by omitting `--target prod`
+- **Production schema can never be bulk-dropped**: Even with `--allow-bulk-outside-dev`
+- **Confirmation outside the dev namespace**: Any drop touching a non-`__tmp_` schema requires typing `yes`
 - **Clear logging**: All DROP commands are displayed before execution
 - **Pattern visibility**: Shows which schemas are matched before dropping
 - **Summary reporting**: Confirms what was dropped and if any failures occurred
 - **Uses `IF EXISTS`**: DROP commands won't fail if table doesn't exist
+
+### Tests
+
+The guards above are covered by regression tests that stub the Trino driver, so they never connect to
+Dune or touch real data. They use only the standard library, so no extra dependencies are needed:
+
+```bash
+uv run python -m unittest discover tests
+```

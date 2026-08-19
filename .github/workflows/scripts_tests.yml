@@ -1,0 +1,38 @@
+name: Script tests
+
+# Unlike dbt CI, these tests stub out the Trino driver. They consume no Dune
+# credits and need no secrets, so they run on every relevant pull request.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/scripts_tests.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/scripts_tests.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Run script safety tests
+        # Standard library only, so the runner's system Python is sufficient.
+        run: python3 -m unittest discover tests --verbose
