@@ -155,21 +155,26 @@ The `replace` strategy cannot handle schema changes because of data type mismatc
 
 **Solution:**
 
-You must **manually drop the table** before running the full refresh.
+You must **manually drop the table** before running the full refresh. The template's
+example script uses the same Dune Trino API endpoint configured in `profiles.yml`.
+These maintenance statements cannot be run from the Dune app.
 
-**Option 1: Use the provided Python script**
+First, preview the exact table that would be dropped:
+
 ```bash
-# Drop a single table
-uv run python scripts/drop_tables.py --schema your_schema_name --table your_table_name
-
-# Drop with target specification
-uv run python scripts/drop_tables.py --schema your_schema_name --table your_table_name --target dev
+uv run python scripts/drop_tables.py \
+  --schema your_schema_name \
+  --table your_table_name
 ```
 
-**Option 2: Use any Trino client**
-Connect to the Dune Trino API endpoint and run:
-```sql
-DROP TABLE IF EXISTS dune.your_schema_name.your_table_name;
+Then execute it. The script prints the same preview and requires an explicit `Y`
+before connecting and dropping the table:
+
+```bash
+uv run python scripts/drop_tables.py \
+  --schema your_schema_name \
+  --table your_table_name \
+  --execute
 ```
 
 **Then run your full refresh:**

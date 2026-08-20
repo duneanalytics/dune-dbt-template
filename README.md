@@ -6,6 +6,50 @@ A dbt project template for Dune using Trino and uv for Python package management
 
 [![Latest Release](https://img.shields.io/github/v/release/duneanalytics/dune-dbt-template?label=latest%20release)](https://github.com/duneanalytics/dune-dbt-template/releases) | [CHANGELOG](CHANGELOG.md)
 
+## This repository is an example
+
+This is an **example template**, not a supported Dune product surface. It exists to
+demonstrate how to model data with dbt against Dune and how to sync the results to an
+external warehouse with datashares.
+
+Once you copy it, the repository is yours. The models, macros and workflows here are
+starting points to adapt, and anything you add or change is under your own review and
+testing. The supported products underneath are Dune's SQL interface and the datashare
+SQL extensions; this repository is one illustration of using them.
+
+## Managing your storage
+
+**Cleaning up tables is your responsibility.** A dbt project accumulates tables across
+dev, CI and production schemas, and every one of them occupies storage until you remove
+it. Be mindful that tables you no longer need still cost you.
+
+Table maintenance uses the same Dune Trino API endpoint that this dbt project writes to:
+`trino.api.dune.com`. These statements cannot be run from the Dune app. You can use
+any Trino client configured with the equivalent settings in `profiles.yml`.
+
+This template includes [`scripts/drop_tables.py`](scripts/drop_tables.py) as an
+intentionally narrow **example, not a supported Dune tool**. It accepts one exact table
+per run, does not handle views, and has no bulk or pattern-matching mode. Dry run is
+the default:
+
+```bash
+uv run python scripts/drop_tables.py \
+  --schema your_schema \
+  --table your_table
+```
+
+Passing `--execute` prints the same preview, pauses, and accepts only `Y` or `N`. It
+connects to the API endpoint and drops the table only after an explicit `Y`:
+
+```bash
+uv run python scripts/drop_tables.py \
+  --schema your_schema \
+  --table your_table \
+  --execute
+```
+
+See [`scripts/README.md`](scripts/README.md) for the complete example and prerequisites.
+
 ## ⚠️ NOTE ⚠️
 
 Running dbt models on Dune from automated pipelines can quickly consume a lot of credits on Dune.
@@ -275,8 +319,8 @@ models/          # dbt models and templates
 macros/          # Custom Dune macros (schema overrides, sources)
   └── dune_dbt_overrides/
       └── get_custom_schema.sql  # Controls schema naming based on target
-scripts/         # Utility scripts for managing your Dune dbt project
-  └── drop_tables.py  # Drop tables/views by schema pattern or specific table
+scripts/         # Example maintenance scripts (not supported Dune tooling)
+  └── drop_tables.py  # Preview or drop one exact table
 .cursor/         # Cursor AI rules (dbt-best-practices.mdc)
   └── rules/
       └── dbt-best-practices.mdc  # dbt patterns and configurations
@@ -296,10 +340,6 @@ The `get_custom_schema.sql` macro determines where models are written based on t
 | `dev`  | Set to `alice`    | `{team}__tmp_alice` | Personal dev space |
 
 This ensures safe isolation between development and production environments.
-
-## Utility Scripts
-
-The `scripts/` directory contains utility scripts for managing tables and schemas. See [scripts/README.md](scripts/README.md) for details.
 
 ## Links
 
