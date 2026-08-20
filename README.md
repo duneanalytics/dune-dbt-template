@@ -12,23 +12,28 @@ This is an **example template**, not a supported Dune product surface. It exists
 demonstrate how to model data with dbt against Dune and how to sync the results to an
 external warehouse with datashares.
 
-Once you copy it, the repository is yours. The models, macros, workflows and scripts
-here are starting points to adapt, and anything you add or change is under your own
-review and testing. The supported products underneath are Dune's SQL interface and the
-datashare SQL extensions; this repository is one illustration of using them.
+Once you copy it, the repository is yours. The models, macros and workflows here are
+starting points to adapt, and anything you add or change is under your own review and
+testing. The supported products underneath are Dune's SQL interface and the datashare
+SQL extensions; this repository is one illustration of using them.
 
-**Managing your storage is your responsibility.** A dbt project accumulates tables
-across dev, CI and production schemas, and those tables occupy storage until you remove
-them. Dune's SQL interface supports `DROP TABLE` and `DROP VIEW`, so you can clean up
-with a plain SQL statement from any Trino client:
+## Managing your storage
+
+**Cleaning up tables is your responsibility.** A dbt project accumulates tables across
+dev, CI and production schemas, and every one of them occupies storage until you remove
+it. Be mindful that tables you no longer need still cost you, and drop them when you are
+done with them.
+
+Dune's SQL interface supports `DROP TABLE` and `DROP VIEW`, so you can do this from any
+Trino client or from the Dune app:
 
 ```sql
 DROP TABLE dune.your_schema.your_table;
 ```
 
-[`scripts/drop_tables.py`](scripts/README.md) is an example wrapper around that for a
-single object. If you need bulk cleanup, write something that suits your own
-environment and review process.
+That is all it takes. This template deliberately does not ship a cleanup script: how you
+decide which tables are safe to drop, and how you review that before running it, depends
+on your own environment. If you want to automate it, build it against your own process.
 
 ## ⚠️ NOTE ⚠️
 
@@ -299,8 +304,6 @@ models/          # dbt models and templates
 macros/          # Custom Dune macros (schema overrides, sources)
   └── dune_dbt_overrides/
       └── get_custom_schema.sql  # Controls schema naming based on target
-scripts/         # Example scripts (not supported tooling)
-  └── drop_tables.py  # Drop one named table/view; requires --target, --schema, --table
 .cursor/         # Cursor AI rules (dbt-best-practices.mdc)
   └── rules/
       └── dbt-best-practices.mdc  # dbt patterns and configurations
@@ -320,10 +323,6 @@ The `get_custom_schema.sql` macro determines where models are written based on t
 | `dev`  | Set to `alice`    | `{team}__tmp_alice` | Personal dev space |
 
 This ensures safe isolation between development and production environments.
-
-## Utility Scripts
-
-The `scripts/` directory contains utility scripts for managing tables and schemas. See [scripts/README.md](scripts/README.md) for details.
 
 ## Links
 
