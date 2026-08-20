@@ -1,28 +1,34 @@
 #!/usr/bin/env python3
 """
-Script to drop tables and views in a Dune schema via Trino API.
+Example script: drop a single table or view in a Dune schema via the Trino API.
 
-This script connects to the Dune Trino API endpoint using the same configuration
-as dbt and drops tables and views based on schema pattern or specific table name.
+This is an EXAMPLE, not a supported Dune tool. It is here to show one way to clean
+up objects your dbt project created. You are free to delete it, or to replace it
+with something that fits your own environment.
 
-NOTE: Trino's DROP TABLE command only removes the metastore entry, leaving orphaned
-data in S3. S3 cleanup should be handled separately via scheduled cleanup jobs.
+Managing storage is your responsibility. dbt projects accumulate tables in dev, CI
+and production schemas, and those tables occupy storage until you remove them.
+Dune's SQL interface supports DROP TABLE and DROP VIEW directly, so this script is
+a convenience wrapper rather than the only route.
+
+Scope, deliberately narrow:
+    - Exactly one object per invocation. --target, --schema and --table are all
+      required, so there is no bulk mode and no pattern matching.
+    - No wildcards. Schema and table names are matched exactly.
+    - Dry run unless --execute is passed.
+    - --execute requires interactive confirmation and refuses to run without a TTY.
+
+NOTE: Trino's DROP TABLE removes the metastore entry. It does not by itself
+guarantee the underlying storage is reclaimed immediately.
 
 Usage:
-    # Dry run - drop all tables matching DUNE_TEAM_NAME__tmp_* pattern
-    python scripts/drop_tables.py
+    # Show what would be dropped (no changes)
+    python scripts/drop_tables.py --target dev --schema my_team__tmp_ --table my_model
 
-    # Dry run - drop all tables in specific schema
-    python scripts/drop_tables.py --schema my_custom_schema
+    # Actually drop it, after confirming interactively
+    python scripts/drop_tables.py --target dev --schema my_team__tmp_ --table my_model --execute
 
-    # Dry run - drop specific table
-    python scripts/drop_tables.py --table my_table_name --schema my_schema
-
-    # Actually execute drops
-    python scripts/drop_tables.py --execute
-
-    # Execute drop for specific schema
-    python scripts/drop_tables.py --schema my_schema --execute
+Set DUNE_API_KEY in your environment before running.
 """
 
 import argparse
@@ -34,220 +40,72 @@ from typing import Optional
 import trino
 
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="%(asctime)s - %(levelname)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
 
+TRINO_HOST = "trino.api.dune.com"
+TRINO_PORT = 443
+CATALOG = "dune"
 
-class DuneTrinoConnection:
-    """Manages connection to Dune Trino API endpoint."""
 
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        host: str = "trino.api.dune.com",
-        port: int = 443,
-        catalog: str = "dune",
-    ):
-        """
-        Initialize Dune Trino connection.
+def connect(api_key: str) -> trino.dbapi.Connection:
+    """Open a connection to the Dune Trino endpoint."""
+    logger.info(f"Connecting to {TRINO_HOST} (catalog={CATALOG})")
+    return trino.dbapi.connect(
+        host=TRINO_HOST,
+        port=TRINO_PORT,
+        user="dune",
+        auth=trino.auth.BasicAuthentication("dune", api_key),
+        catalog=CATALOG,
+        http_scheme="https",
+        session_properties={"transformations": "true"},
+    )
 
-        Args:
-            api_key: Dune API key (defaults to DUNE_API_KEY env var)
-            host: Trino host endpoint
-            port: Trino port
-            catalog: Trino catalog
-        """
-        self.api_key = api_key or os.getenv("DUNE_API_KEY")
-        if not self.api_key:
-            raise ValueError(
-                "DUNE_API_KEY environment variable is required or pass api_key parameter"
-            )
 
-        self.host = host
-        self.port = port
-        self.catalog = catalog
-        self.connection = None
+def validate_name(kind: str, value: str) -> None:
+    """
+    Reject names this script will not accept.
 
-        logger.info(f"Initialized Dune Trino connection config (host={host}, catalog={catalog})")
-
-    def connect(self) -> trino.dbapi.Connection:
-        """
-        Establish connection to Dune Trino API.
-
-        Returns:
-            trino.dbapi.Connection: Active Trino connection
-        """
-        logger.info("Connecting to Dune Trino API...")
-
-        self.connection = trino.dbapi.connect(
-            host=self.host,
-            port=self.port,
-            user="dune",  # Always 'dune' for Dune API
-            catalog=self.catalog,
-            http_scheme="https",
-            auth=trino.auth.BasicAuthentication("dune", self.api_key),
-            session_properties={"transformations": "true"},
+    Wildcards are refused outright: this script matches exact names only, and
+    accepting '%' would invite the assumption that patterns are supported.
+    """
+    if "%" in value:
+        raise ValueError(
+            f"{kind} '{value}' contains '%'. Wildcards are not supported: "
+            f"this script drops one named object at a time."
         )
-
-        logger.info("Successfully connected to Dune Trino API")
-        return self.connection
-
-    def close(self):
-        """Close the Trino connection."""
-        if self.connection:
-            self.connection.close()
-            logger.info("Connection closed")
+    if '"' in value:
+        raise ValueError(f"{kind} '{value}' contains a double quote.")
+    if value.strip() != value or not value:
+        raise ValueError(f"{kind} must be a non-empty name without surrounding whitespace.")
 
 
-def list_tables_by_pattern(
-    connection: trino.dbapi.Connection,
-    schema_pattern: str,
-    catalog: str = "dune",
-) -> list:
-    """
-    List all tables matching a schema pattern.
-
-    Args:
-        connection: Active Trino connection
-        schema_pattern: Schema pattern to match (e.g., 'my_team__tmp_%' for LIKE matching)
-        catalog: Catalog name (default: 'dune')
-
-    Returns:
-        list: List of dicts with schema, table name, and type
-    """
-    cursor = connection.cursor()
-
-    # Use parameterized query to prevent SQL injection
-    query = """
-        select
-            table_schema
-            , table_name
-            , table_type
-        from
-            dune.information_schema.tables
-        where
-            table_catalog = ?
-            and table_schema like ?
-        order by
-            table_schema
-            , table_name
-    """
-
-    logger.info(f"Querying tables matching schema pattern: {schema_pattern}")
-    logger.debug(f"Query: {query}")
-    logger.debug(f"Parameters: catalog={catalog}, schema_pattern={schema_pattern}")
-
-    try:
-        cursor.execute(query, (catalog, schema_pattern))
-        results = cursor.fetchall()
-
-        tables = []
-        for row in results:
-            schema_name, table_name, table_type = row
-            tables.append({
-                "schema": schema_name,
-                "name": table_name,
-                "type": table_type,
-            })
-
-        return tables
-    except Exception as e:
-        logger.error(f"Error querying tables: {e}")
-        raise
-    finally:
-        cursor.close()
+def quote_identifier(identifier: str) -> str:
+    """Double-quote an identifier for safe use in a DDL statement."""
+    if '"' in identifier:
+        raise ValueError(f"Invalid identifier: {identifier}")
+    return f'"{identifier}"'
 
 
-def list_tables_by_schema(
+def find_object(
     connection: trino.dbapi.Connection,
     schema: str,
-    catalog: str = "dune",
-) -> list:
+    table: str,
+) -> Optional[str]:
     """
-    List all tables in a specific schema using exact equality match.
+    Look up one object by exact schema and table name.
 
-    Args:
-        connection: Active Trino connection
-        schema: Exact schema name (no pattern matching)
-        catalog: Catalog name (default: 'dune')
-
-    Returns:
-        list: List of dicts with schema, table name, and type
+    Returns the object's table_type ('BASE TABLE' or 'VIEW'), or None if it does
+    not exist. Looking it up first means a typo reports "not found" rather than
+    silently succeeding against DROP ... IF EXISTS.
     """
-    cursor = connection.cursor()
-
-    # Use parameterized query with exact equality (not LIKE)
     query = """
         select
-            table_schema
-            , table_name
-            , table_type
-        from
-            dune.information_schema.tables
-        where
-            table_catalog = ?
-            and table_schema = ?
-        order by
-            table_schema
-            , table_name
-    """
-
-    logger.info(f"Querying tables in schema: {schema}")
-    logger.debug(f"Query: {query}")
-    logger.debug(f"Parameters: catalog={catalog}, schema={schema}")
-
-    try:
-        cursor.execute(query, (catalog, schema))
-        results = cursor.fetchall()
-
-        tables = []
-        for row in results:
-            schema_name, table_name, table_type = row
-            tables.append({
-                "schema": schema_name,
-                "name": table_name,
-                "type": table_type,
-            })
-
-        return tables
-    except Exception as e:
-        logger.error(f"Error querying tables: {e}")
-        raise
-    finally:
-        cursor.close()
-
-
-def list_specific_table(
-    connection: trino.dbapi.Connection,
-    schema: str,
-    table_name: str,
-    catalog: str = "dune",
-) -> list:
-    """
-    List a specific table in a schema.
-
-    Args:
-        connection: Active Trino connection
-        schema: Schema name
-        table_name: Table name
-        catalog: Catalog name (default: 'dune')
-
-    Returns:
-        list: List with single dict containing table info, or empty list if not found
-    """
-    cursor = connection.cursor()
-
-    # Use parameterized query to prevent SQL injection
-    query = """
-        select
-            table_schema
-            , table_name
-            , table_type
+            table_type
         from
             dune.information_schema.tables
         where
@@ -255,394 +113,170 @@ def list_specific_table(
             and table_schema = ?
             and table_name = ?
     """
-
-    logger.info(f"Querying table: {catalog}.{schema}.{table_name}")
-    logger.debug(f"Query: {query}")
-    logger.debug(f"Parameters: catalog={catalog}, schema={schema}, table_name={table_name}")
-
-    try:
-        cursor.execute(query, (catalog, schema, table_name))
-        results = cursor.fetchall()
-
-        tables = []
-        for row in results:
-            schema_name, table_name_result, table_type = row
-            tables.append({
-                "schema": schema_name,
-                "name": table_name_result,
-                "type": table_type,
-            })
-
-        return tables
-    except Exception as e:
-        logger.error(f"Error querying table: {e}")
-        raise
-    finally:
-        cursor.close()
-
-
-def quote_identifier(identifier: str) -> str:
-    """
-    Quote a SQL identifier to prevent SQL injection in DDL statements.
-    
-    In Trino, identifiers can be quoted with double quotes.
-    This function validates and quotes identifiers safely.
-    
-    Args:
-        identifier: SQL identifier to quote
-        
-    Returns:
-        str: Quoted identifier
-        
-    Raises:
-        ValueError: If identifier contains quotes or is invalid
-    """
-    # Validate: no double quotes allowed (would break quoting)
-    if '"' in identifier:
-        raise ValueError(f"Invalid identifier: contains double quotes: {identifier}")
-    
-    # Quote the identifier
-    return f'"{identifier}"'
-
-
-def drop_table_or_view(
-    connection: trino.dbapi.Connection,
-    schema: str,
-    table_name: str,
-    table_type: str,
-    catalog: str = "dune",
-    dry_run: bool = True,
-) -> bool:
-    """
-    Drop a table or view from the specified schema.
-
-    Args:
-        connection: Active Trino connection
-        schema: Schema name
-        table_name: Name of the table/view to drop
-        table_type: Type of object ('BASE TABLE' or 'VIEW')
-        catalog: Catalog name (default: 'dune')
-        dry_run: If True, only log the command without executing
-
-    Returns:
-        bool: True if successful (or dry run), False otherwise
-    """
-    try:
-        # Quote identifiers to prevent SQL injection in DDL statements
-        quoted_catalog = quote_identifier(catalog)
-        quoted_schema = quote_identifier(schema)
-        quoted_table = quote_identifier(table_name)
-        
-        # Determine if this is a table or view
-        if table_type == "VIEW":
-            drop_statement = f"drop view if exists {quoted_catalog}.{quoted_schema}.{quoted_table}"
-        else:  # BASE TABLE or other types
-            drop_statement = f"drop table if exists {quoted_catalog}.{quoted_schema}.{quoted_table}"
-    except ValueError as e:
-        logger.error(f"✗ Invalid identifier for {schema}.{table_name}: {e}")
-        return False
-
-    # Always log the drop command
-    logger.info(f"DROP: {drop_statement}")
-
-    if dry_run:
-        logger.debug("Dry run mode - command not executed")
-        return True
-
-    # Execute the drop command
     cursor = connection.cursor()
     try:
-        cursor.execute(drop_statement)
-        logger.info(f"✓ Successfully dropped: {schema}.{table_name}")
-        return True
-    except Exception as e:
-        logger.error(f"✗ Error dropping {schema}.{table_name}: {e}")
-        return False
+        cursor.execute(query, (CATALOG, schema, table))
+        rows = cursor.fetchall()
     finally:
         cursor.close()
 
+    if not rows:
+        return None
+    return rows[0][0]
 
-def drop_tables(
-    connection: trino.dbapi.Connection,
-    tables: list,
-    catalog: str = "dune",
-    dry_run: bool = True,
-) -> dict:
+
+def build_drop_statement(schema: str, table: str, table_type: str) -> str:
+    """Build the DROP statement for a single object."""
+    target = ".".join(
+        (quote_identifier(CATALOG), quote_identifier(schema), quote_identifier(table))
+    )
+    keyword = "view" if table_type == "VIEW" else "table"
+    return f"drop {keyword} {target}"
+
+
+def confirm(target: str, schema: str, table: str) -> bool:
     """
-    Drop tables and views from the list.
+    Ask for interactive confirmation.
 
-    Args:
-        connection: Active Trino connection
-        tables: List of table dicts with 'schema', 'name', and 'type'
-        catalog: Catalog name (default: 'dune')
-        dry_run: If True, only log the commands without executing
-
-    Returns:
-        dict: Summary with counts of successful and failed drops
+    On the prod target the full schema.table must be retyped, so that dropping a
+    production object cannot be a reflexive 'yes'.
     """
-    if not tables:
-        logger.info("No tables found to drop.")
-        return {"total": 0, "success": 0, "failed": 0}
-
-    logger.info("=" * 80)
-    logger.info(f"Preparing to drop {len(tables)} table(s)/view(s)")
-    logger.info("=" * 80)
-
-    success_count = 0
-    failed_count = 0
-
-    for table in tables:
-        success = drop_table_or_view(
-            connection,
-            table["schema"],
-            table["name"],
-            table["type"],
-            catalog,
-            dry_run,
+    if not sys.stdin.isatty():
+        logger.error(
+            "--execute requires an interactive terminal. This is an ad-hoc tool and "
+            "is not intended to run unattended."
         )
-        if success:
-            success_count += 1
-        else:
-            failed_count += 1
+        return False
 
-    logger.info("=" * 80)
-    logger.info(f"Drop summary: {success_count} successful, {failed_count} failed")
-    logger.info("=" * 80)
+    qualified = f"{schema}.{table}"
+    if target == "prod":
+        prompt = f"Type '{qualified}' to confirm dropping this PROD object: "
+        expected = qualified
+    else:
+        prompt = "Type 'yes' to confirm: "
+        expected = "yes"
 
-    return {
-        "total": len(tables),
-        "success": success_count,
-        "failed": failed_count,
-    }
+    try:
+        response = input(prompt).strip()
+    except (EOFError, KeyboardInterrupt):
+        logger.warning("Cancelled.")
+        return False
+
+    if response != expected:
+        logger.warning("Input did not match. Cancelled, nothing was dropped.")
+        return False
+    return True
 
 
-def main():
-    """Main entry point for the script."""
+def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Drop tables and views in a Dune schema via Trino API",
+        description=(
+            "Drop a single table or view in a Dune schema. Example script, not a "
+            "supported Dune tool."
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+This script drops ONE named object per run. --target, --schema and --table are all
+required. There is no bulk mode and no wildcard support.
+
+--target records which environment you intend to act on and controls how the
+confirmation prompt behaves. It is a declaration of intent, not a safety boundary:
+the object dropped is always the one you name in --schema and --table.
+
 Examples:
-  # Dry run - drop all dev tables (DUNE_TEAM_NAME__tmp_* pattern)
-  python scripts/drop_tables.py
+  # Show what would be dropped, change nothing
+  python scripts/drop_tables.py --target dev --schema my_team__tmp_ --table my_model
 
-  # Execute drop for dev tables
-  python scripts/drop_tables.py --execute
+  # Drop it (asks for confirmation first)
+  python scripts/drop_tables.py --target dev --schema my_team__tmp_ --table my_model --execute
 
-  # Drop specific dev table (dry run)
-  python scripts/drop_tables.py --table my_table --schema dune__tmp_jeff
+  # Production object (confirmation requires retyping schema.table)
+  python scripts/drop_tables.py --target prod --schema my_team --table my_model --execute
 
-  # Drop specific dev table (execute)
-  python scripts/drop_tables.py --table my_table --schema dune__tmp_jeff --execute
-
-  # Drop specific prod table (dry run - REQUIRES --schema AND --table)
-  python scripts/drop_tables.py --target prod --schema dune --table my_table
-
-  # Drop specific prod table (execute - REQUIRES CONFIRMATION)
-  python scripts/drop_tables.py --target prod --schema dune --table my_table --execute
+Requires DUNE_API_KEY in the environment.
         """,
     )
 
-    # Get default schema pattern from environment
-    dune_team_name = os.getenv("DUNE_TEAM_NAME", "dune")
-    default_dev_pattern = f"{dune_team_name}__tmp_%"
-    default_prod_schema = dune_team_name
-
     parser.add_argument(
         "--target",
-        type=str,
+        required=True,
         choices=["dev", "prod"],
-        default="dev",
-        help="Target environment: 'dev' (default, uses __tmp_ pattern) or 'prod' (production schema)",
+        help="Environment you intend to act on. Required.",
     )
-
     parser.add_argument(
         "--schema",
-        type=str,
-        default=None,
-        help="Schema name or pattern (overrides --target default)",
+        required=True,
+        help="Exact schema name. Required. No wildcards.",
     )
-
     parser.add_argument(
         "--table",
-        type=str,
-        default=None,
-        help="Specific table or view name to drop (requires --schema to be exact schema name)",
+        required=True,
+        help="Exact table or view name. Required. No wildcards.",
     )
-
     parser.add_argument(
         "--execute",
         action="store_true",
-        help="Execute the drop operations (default is dry-run mode)",
-    )
-
-    parser.add_argument(
-        "--api-key",
-        type=str,
-        default=None,
-        help="Dune API key (defaults to DUNE_API_KEY env var)",
-    )
-
-    parser.add_argument(
-        "--verbose",
-        "-v",
-        action="store_true",
-        help="Enable verbose (debug) logging",
+        help="Perform the drop. Without this flag the statement is only printed.",
     )
 
     args = parser.parse_args()
 
-    # Set logging level based on verbose flag
-    if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-        logger.setLevel(logging.DEBUG)
-
-    # Determine dry run mode
-    dry_run = not args.execute
-
-    # Determine schema/pattern to use and prod status
-    is_prod = args.target == "prod"
-    
-    if args.schema:
-        schema_or_pattern = args.schema
-        use_pattern = not args.table  # If specific table, don't use pattern matching
-    else:
-        # Use target to determine schema
-        if args.target == "prod":
-            schema_or_pattern = default_prod_schema
-            use_pattern = False  # Prod is exact schema, not a pattern
-        else:  # dev
-            schema_or_pattern = default_dev_pattern
-            use_pattern = True
-
-    # Validation
-    if args.table and not args.schema:
-        logger.error("Error: --table requires --schema to be specified")
-        return 1
-    
-    # Production safety: require specific table/view
-    if is_prod and (not args.schema or not args.table):
-        logger.error("=" * 80)
-        logger.error("Error: Production drops require BOTH --schema AND --table")
-        logger.error("=" * 80)
-        logger.error("For safety, you can only drop one specific table/view at a time in prod.")
-        logger.error("You must specify:")
-        logger.error("  --schema SCHEMA_NAME")
-        logger.error("  --table TABLE_NAME")
-        logger.error("")
-        logger.error("Example:")
-        logger.error(f"  python scripts/drop_tables.py --target prod --schema {default_prod_schema} --table my_table --execute")
-        logger.error("=" * 80)
+    api_key = os.getenv("DUNE_API_KEY")
+    if not api_key:
+        logger.error("DUNE_API_KEY is not set.")
         return 1
 
-    # Display mode
-    if dry_run:
-        logger.warning("=" * 80)
-        logger.warning("DRY RUN MODE - No operations will be executed")
-        logger.warning("To execute operations, add the --execute flag")
-        logger.warning("=" * 80)
-
-    # Display target info
-    target_label = f"{'PROD' if is_prod else 'DEV'}"
-    if args.table:
-        logger.info(f"Target [{target_label}]: Specific table '{args.table}' in schema '{args.schema}'")
-    elif use_pattern:
-        logger.info(f"Target [{target_label}]: All tables matching schema pattern '{schema_or_pattern}'")
-    else:
-        logger.info(f"Target [{target_label}]: All tables in schema '{schema_or_pattern}'")
-
-    # Execute
-    dune_conn = None
     try:
-        # Create connection
-        dune_conn = DuneTrinoConnection(api_key=args.api_key)
-        connection = dune_conn.connect()
+        validate_name("Schema", args.schema)
+        validate_name("Table", args.table)
+    except ValueError as exc:
+        logger.error(str(exc))
+        return 1
 
-        # Get tables to drop
-        if args.table:
-            # Drop specific table
-            tables = list_specific_table(
-                connection,
-                args.schema,
-                args.table,
-                catalog="dune",
-            )
-            if not tables:
-                logger.warning(f"Table '{args.table}' not found in schema '{args.schema}'")
-                return 0
-        elif use_pattern:
-            # Drop by pattern (uses SQL LIKE with wildcards)
-            tables = list_tables_by_pattern(
-                connection,
-                schema_or_pattern,
-                catalog="dune",
-            )
-        else:
-            # Drop all in specific schema (uses exact equality match)
-            tables = list_tables_by_schema(
-                connection,
-                schema_or_pattern,
-                catalog="dune",
-            )
+    dry_run = not args.execute
+    if dry_run:
+        logger.info("DRY RUN. Nothing will be dropped. Add --execute to apply.")
 
-        # Production safety check: require confirmation before dropping
-        if is_prod and not dry_run and tables:
-            logger.warning("")
-            logger.warning("=" * 80)
-            logger.warning("⚠️  PRODUCTION DROP WARNING ⚠️")
-            logger.warning("=" * 80)
-            logger.warning(f"You are about to DROP {len(tables)} table(s)/view(s) from PRODUCTION schema(s)!")
-            logger.warning(f"Schema: {schema_or_pattern}")
-            logger.warning("=" * 80)
-            logger.warning("")
-            
-            # Show first 10 tables as preview
-            preview_count = min(10, len(tables))
-            logger.warning(f"Preview of tables to be dropped (showing {preview_count} of {len(tables)}):")
-            for i, table in enumerate(tables[:preview_count]):
-                logger.warning(f"  {i+1}. {table['schema']}.{table['name']} ({table['type']})")
-            if len(tables) > preview_count:
-                logger.warning(f"  ... and {len(tables) - preview_count} more table(s)")
-            logger.warning("")
-            
-            # Get user confirmation
-            try:
-                response = input("Are you sure you want to proceed? Type 'yes' to confirm: ").strip().lower()
-                if response != "yes":
-                    logger.info("Operation cancelled by user.")
-                    return 0
-                logger.info("Confirmed. Proceeding with drop operations...")
-            except (KeyboardInterrupt, EOFError):
-                logger.info("\nOperation cancelled by user.")
-                return 0
+    logger.info(
+        f"Target [{args.target.upper()}]: {CATALOG}.{args.schema}.{args.table}"
+    )
 
-        # Drop the tables
-        summary = drop_tables(
-            connection,
-            tables,
-            catalog="dune",
-            dry_run=dry_run,
-        )
+    connection = connect(api_key)
+    try:
+        table_type = find_object(connection, args.schema, args.table)
+        if table_type is None:
+            logger.error(
+                f"Not found: {CATALOG}.{args.schema}.{args.table}. "
+                f"Nothing was dropped. Check the schema and table names."
+            )
+            return 1
+
+        statement = build_drop_statement(args.schema, args.table, table_type)
+        logger.info(f"Statement: {statement}")
 
         if dry_run:
-            logger.info("")
-            logger.info("=" * 80)
-            logger.info("DRY RUN COMPLETE")
-            logger.info("Above are the DROP commands that would be executed.")
-            logger.info("Use --execute flag to actually drop the tables/views.")
-            logger.info("=" * 80)
+            logger.info("DRY RUN complete. Re-run with --execute to apply.")
+            return 0
 
+        if not confirm(args.target, args.schema, args.table):
+            return 1
+
+        cursor = connection.cursor()
+        try:
+            cursor.execute(statement)
+            cursor.fetchall()
+        finally:
+            cursor.close()
+
+        logger.info(f"Dropped {CATALOG}.{args.schema}.{args.table}")
         return 0
-
-    except Exception as e:
-        logger.error(f"Failed to complete operation: {e}")
+    except Exception as exc:
+        logger.error(f"Failed: {exc}")
         return 1
     finally:
-        # Ensure connection is always closed, even if an exception occurs
-        if dune_conn is not None:
-            dune_conn.close()
+        connection.close()
+        logger.info("Connection closed")
 
 
 if __name__ == "__main__":
     sys.exit(main())
-

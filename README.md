@@ -6,6 +6,30 @@ A dbt project template for Dune using Trino and uv for Python package management
 
 [![Latest Release](https://img.shields.io/github/v/release/duneanalytics/dune-dbt-template?label=latest%20release)](https://github.com/duneanalytics/dune-dbt-template/releases) | [CHANGELOG](CHANGELOG.md)
 
+## This repository is an example
+
+This is an **example template**, not a supported Dune product surface. It exists to
+demonstrate how to model data with dbt against Dune and how to sync the results to an
+external warehouse with datashares.
+
+Once you copy it, the repository is yours. The models, macros, workflows and scripts
+here are starting points to adapt, and anything you add or change is under your own
+review and testing. The supported products underneath are Dune's SQL interface and the
+datashare SQL extensions; this repository is one illustration of using them.
+
+**Managing your storage is your responsibility.** A dbt project accumulates tables
+across dev, CI and production schemas, and those tables occupy storage until you remove
+them. Dune's SQL interface supports `DROP TABLE` and `DROP VIEW`, so you can clean up
+with a plain SQL statement from any Trino client:
+
+```sql
+DROP TABLE dune.your_schema.your_table;
+```
+
+[`scripts/drop_tables.py`](scripts/README.md) is an example wrapper around that for a
+single object. If you need bulk cleanup, write something that suits your own
+environment and review process.
+
 ## ⚠️ NOTE ⚠️
 
 Running dbt models on Dune from automated pipelines can quickly consume a lot of credits on Dune.
@@ -275,8 +299,8 @@ models/          # dbt models and templates
 macros/          # Custom Dune macros (schema overrides, sources)
   └── dune_dbt_overrides/
       └── get_custom_schema.sql  # Controls schema naming based on target
-scripts/         # Utility scripts for managing your Dune dbt project
-  └── drop_tables.py  # Drop tables/views by schema pattern or specific table
+scripts/         # Example scripts (not supported tooling)
+  └── drop_tables.py  # Drop one named table/view; requires --target, --schema, --table
 .cursor/         # Cursor AI rules (dbt-best-practices.mdc)
   └── rules/
       └── dbt-best-practices.mdc  # dbt patterns and configurations
