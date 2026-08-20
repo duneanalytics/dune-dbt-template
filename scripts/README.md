@@ -6,13 +6,30 @@ This directory contains utility scripts for managing your Dune dbt project.
 
 Drops tables and views in a Dune schema via the Trino API endpoint.
 
+> **Status: optional, unsupported utility.** This script exists so teams can clean
+> up the dev, CI and archived tables that a dbt project accumulates and that would
+> otherwise keep accruing storage cost. It is not part of the dbt connector path —
+> nothing in the models, macros, or workflows invokes it — and it is not covered by
+> automated tests. If your team does not need periodic cleanup, you can delete
+> `scripts/drop_tables.py` from your repository with no effect on dbt.
+
+> **⚠️ There are no production guardrails.** The `--target prod` restrictions
+> described below are keyed to the `--target` flag, not to the schema name. Because
+> `--schema` overrides the target's default schema, running
+> `--schema <your_prod_schema> --execute` performs an unconfirmed bulk drop of every
+> object in that schema. Treat every `--execute` run as unguarded: run it without
+> `--execute` first and read the list of DROP statements.
+
 ### Purpose
 
 This script connects to the Dune Trino API using the same configuration as dbt and drops tables and views based on:
-- **Target environment** (dev or prod)
-  - `dev` (default): Drops all tables matching `{DUNE_TEAM_NAME}__tmp_%` pattern (bulk drops allowed)
-  - `prod`: **Only allows dropping ONE specific table/view at a time** (requires `--schema` and `--table`)
-- **Schema pattern matching** (dev only - override with `--schema` for custom patterns)
+- **Target environment** (dev or prod), which selects the *default* schema and, for
+  prod, the single-table checks
+  - `dev` (default): schema pattern `{DUNE_TEAM_NAME}__tmp_%`, bulk drops allowed
+  - `prod`: schema `{DUNE_TEAM_NAME}`, with the checks described under
+    [Drop Prod Tables](#drop-prod-tables)
+- **Schema name or pattern** via `--schema`, which overrides the target default and
+  is not limited to dev schemas
 - **Specific table/view** (drop a single table or view)
 
 The script uses `INFORMATION_SCHEMA.TABLES` to find tables and generates appropriate `DROP TABLE` or `DROP VIEW` commands based on the object type.
@@ -22,10 +39,12 @@ The script uses `INFORMATION_SCHEMA.TABLES` to find tables and generates appropr
 - S3 cleanup should be handled separately via scheduled cleanup jobs
 - This script does not clean up S3 data (requires separate AWS access)
 
-**Production Safety**: 
-- Prod drops require BOTH `--schema` AND `--table` (no bulk drops)
-- Interactive confirmation is required before executing prod drops
-- This ensures prod drops are deliberate, specific, and rare
+**Checks applied when `--target prod` is passed**:
+- Requires BOTH `--schema` AND `--table`, so no bulk drop is possible
+- Requires interactive confirmation before executing
+
+These two checks test the value of the `--target` flag. They are **not** applied when
+the production schema is named with `--schema` on the default `dev` target.
 
 ### Prerequisites
 
@@ -56,9 +75,12 @@ python scripts/drop_tables.py --execute
 
 #### Drop Prod Tables
 
-⚠️ **Production Restriction**: For safety, prod drops require BOTH `--schema` AND `--table`.
+⚠️ **This restriction is scoped to the `--target prod` flag, not to the schema.** When
+you pass `--target prod`, the script requires both `--schema` and `--table` and will not
+bulk drop. Naming the same production schema via `--schema` on the default `dev` target
+skips the restriction entirely.
 
-You can only drop **one specific table/view at a time** in prod. Bulk drops are not allowed.
+Under `--target prod` you can only drop **one specific table/view at a time**.
 
 ```bash
 # Dry run - drop specific prod table
@@ -68,15 +90,20 @@ python scripts/drop_tables.py --target prod --schema dune --table my_table
 python scripts/drop_tables.py --target prod --schema dune --table my_table --execute
 ```
 
-**⚠️ Production Safety**: When using `--target prod` with `--execute`:
+**When using `--target prod` with `--execute`**:
 1. You MUST specify both `--schema` and `--table` (no pattern matching)
 2. Script confirms the specific table that will be dropped
 3. Requires you to type `yes` to confirm
 4. Operation is cancelled if you type anything else or press Ctrl+C
 
-**This restriction ensures prod drops are deliberate, specific, and rare.**
+**All four steps depend on `--target prod` being passed.** Reaching the same schema
+through `--schema` on the default target skips all of them.
 
 #### Drop Specific Schema
+
+⚠️ **This path applies no restrictions and asks for no confirmation.** `--schema`
+accepts any schema name, including your production schema, and drops every object it
+finds there. Run it without `--execute` first and read the output.
 
 Drop all tables in a specific schema (exact match):
 
@@ -242,16 +269,31 @@ The script uses the following connection configuration (matching `profiles.yml`)
 - Default pattern `{DUNE_TEAM_NAME}__tmp_%` matches all dev schemas
 - The `%` wildcard matches any characters (including none)
 - You can provide custom patterns with `--schema` (e.g., `test_%`, `staging_%`)
+- Custom patterns are **not** confined to dev schemas, and the resulting list of
+  objects is not filtered afterwards. A broad pattern such as `%` matches every schema
+  the API key can see
 
 This approach is particularly useful for:
 - Cleaning up all dev schemas at once (including PR schemas)
 - Cleaning up after CI/CD test runs
 - Removing temporary tables from pattern-matched schemas
 
-### Safety Features
+### What the script does protect against
 
-- **Dry run by default**: Prevents accidental deletions
-- **Clear logging**: All DROP commands are displayed before execution
-- **Pattern visibility**: Shows which schemas are matched before dropping
-- **Summary reporting**: Confirms what was dropped and if any failures occurred
-- **Uses `IF EXISTS`**: DROP commands won't fail if table doesn't exist
+- **Dry run by default**: nothing is dropped unless `--execute` is passed
+- **Clear logging**: all DROP commands are displayed before execution
+- **Pattern visibility**: shows which schemas are matched before dropping
+- **Summary reporting**: reports what was dropped and whether any drops failed
+- **Uses `IF EXISTS`**: DROP commands won't fail if the table doesn't exist
+
+### What it does not protect against
+
+- **Bulk drops of a production schema.** `--schema <prod_schema> --execute` drops every
+  object in that schema with no confirmation prompt
+- **Broad schema patterns.** A wildcard `--schema` value is not restricted to dev
+  schemas
+- **Partial failures.** Individual drop failures are logged and the run continues, so a
+  rejected drop and a successful one can look similar in a long output
+
+The dry run is the control. Read it before adding `--execute`, and if your team has no
+need for periodic cleanup, delete `scripts/drop_tables.py`.
