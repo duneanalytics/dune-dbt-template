@@ -8,6 +8,18 @@ as dbt and drops tables and views based on schema pattern or specific table name
 NOTE: Trino's DROP TABLE command only removes the metastore entry, leaving orphaned
 data in S3. S3 cleanup should be handled separately via scheduled cleanup jobs.
 
+REQUIRED WORKFLOW: Always run the command without --execute first and review every
+DROP statement. Only after confirming the complete list should you rerun the same
+command with --execute. Execute mode does not pause for review before dropping dev or
+custom-schema objects: each DROP statement is logged as it is issued, so by the time a
+statement appears in the output, that object has already been dropped.
+
+WARNING: There are no production guardrails. The --target prod restrictions are keyed
+to the --target flag, not to the schema name. Because --schema overrides the target's
+default schema, `--schema <prod_schema> --execute` performs an unconfirmed bulk drop of
+every object in that schema. This script is an optional, unsupported helper; if your
+team does not need periodic cleanup, delete it.
+
 Usage:
     # Dry run - drop all tables matching DUNE_TEAM_NAME__tmp_* pattern
     python scripts/drop_tables.py
@@ -18,10 +30,10 @@ Usage:
     # Dry run - drop specific table
     python scripts/drop_tables.py --table my_table_name --schema my_schema
 
-    # Actually execute drops
+    # Execute drops (only after reviewing the matching dry run above)
     python scripts/drop_tables.py --execute
 
-    # Execute drop for specific schema
+    # Execute drop for specific schema (only after reviewing its dry run)
     python scripts/drop_tables.py --schema my_schema --execute
 """
 
@@ -422,18 +434,37 @@ def main():
         description="Drop tables and views in a Dune schema via Trino API",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+REQUIRED WORKFLOW:
+  1. Run the intended command WITHOUT --execute.
+  2. Review the complete list of DROP statements.
+  3. Only then rerun the same command with --execute.
+
+  Execute mode does not pause for review before dropping dev or custom-schema
+  objects. Each DROP statement is logged as it is issued, so by the time you see
+  a line, that object has already been dropped.
+
+  There are no production guardrails. The --target prod restrictions below are
+  keyed to the --target flag, not to the schema name, so
+  `--schema <prod_schema> --execute` bulk-drops that schema without confirmation.
+
 Examples:
   # Dry run - drop all dev tables (DUNE_TEAM_NAME__tmp_* pattern)
   python scripts/drop_tables.py
 
-  # Execute drop for dev tables
+  # Execute drop for dev tables (only after reviewing the dry run above)
   python scripts/drop_tables.py --execute
 
   # Drop specific dev table (dry run)
   python scripts/drop_tables.py --table my_table --schema dune__tmp_jeff
 
-  # Drop specific dev table (execute)
+  # Drop specific dev table (execute, after reviewing its dry run)
   python scripts/drop_tables.py --table my_table --schema dune__tmp_jeff --execute
+
+  # Drop with custom pattern (dry run)
+  python scripts/drop_tables.py --schema test_%
+
+  # Drop with custom pattern (execute, after reviewing its dry run)
+  python scripts/drop_tables.py --schema test_% --execute
 
   # Drop specific prod table (dry run - REQUIRES --schema AND --table)
   python scripts/drop_tables.py --target prod --schema dune --table my_table

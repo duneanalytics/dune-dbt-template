@@ -17,8 +17,13 @@ Drops tables and views in a Dune schema via the Trino API endpoint.
 > described below are keyed to the `--target` flag, not to the schema name. Because
 > `--schema` overrides the target's default schema, running
 > `--schema <your_prod_schema> --execute` performs an unconfirmed bulk drop of every
-> object in that schema. Treat every `--execute` run as unguarded: run it without
-> `--execute` first and read the list of DROP statements.
+> object in that schema. Treat every `--execute` run as unguarded.
+
+> **Required workflow.** Always run the command without `--execute` first and review
+> every DROP statement. Only after confirming the complete list should you rerun the
+> same command with `--execute`. Execute mode does not pause for review before dropping
+> dev or custom-schema objects: it logs each DROP statement as it issues it, so by the
+> time a statement appears in the output, that object has already been dropped.
 
 ### Purpose
 
@@ -135,8 +140,8 @@ python scripts/drop_tables.py --table my_table_name --schema my_schema --execute
 # Verbose logging for debugging
 python scripts/drop_tables.py --verbose
 
-# Specify API key directly (instead of using env var)
-python scripts/drop_tables.py --execute --api-key YOUR_API_KEY_HERE
+# Specify API key directly (instead of using env var) - dry run
+python scripts/drop_tables.py --api-key YOUR_API_KEY_HERE
 ```
 
 ### Command-Line Arguments
@@ -181,7 +186,10 @@ python scripts/drop_tables.py --target prod --schema dune --table my_model
 # Drop specific PROD table (execute - REQUIRES CONFIRMATION)
 python scripts/drop_tables.py --target prod --schema dune --table my_model --execute
 
-# Drop with custom pattern (any dev schema starting with 'test_')
+# Drop with custom pattern (any schema starting with 'test_') - dry run first
+python scripts/drop_tables.py --schema test_%
+
+# Drop with custom pattern (execute, only after reviewing the dry run above)
 python scripts/drop_tables.py --schema test_% --execute
 
 # Verbose output for debugging
@@ -281,8 +289,11 @@ This approach is particularly useful for:
 ### What the script does protect against
 
 - **Dry run by default**: nothing is dropped unless `--execute` is passed
-- **Clear logging**: all DROP commands are displayed before execution
-- **Pattern visibility**: shows which schemas are matched before dropping
+- **A complete dry-run listing**: without `--execute`, every DROP statement and every
+  matched schema is printed and nothing is executed. This is the only point at which
+  you get the full list before any object is dropped
+- **Statement-level logging in execute mode**: each DROP statement is logged as it is
+  issued, so the output is an audit trail of what was attempted
 - **Summary reporting**: reports what was dropped and whether any drops failed
 - **Uses `IF EXISTS`**: DROP commands won't fail if the table doesn't exist
 
@@ -290,6 +301,10 @@ This approach is particularly useful for:
 
 - **Bulk drops of a production schema.** `--schema <prod_schema> --execute` drops every
   object in that schema with no confirmation prompt
+- **A review step in execute mode.** Only the object count is printed before dropping
+  begins. Individual DROP statements are logged as they are issued, not gathered into a
+  list you approve first, so there is no opportunity to abort partway on the basis of
+  the output. The dry run is the review step
 - **Broad schema patterns.** A wildcard `--schema` value is not restricted to dev
   schemas
 - **Partial failures.** Individual drop failures are logged and the run continues, so a
