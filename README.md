@@ -21,19 +21,33 @@ SQL extensions; this repository is one illustration of using them.
 
 **Cleaning up tables is your responsibility.** A dbt project accumulates tables across
 dev, CI and production schemas, and every one of them occupies storage until you remove
-it. Be mindful that tables you no longer need still cost you, and drop them when you are
-done with them.
+it. Be mindful that tables you no longer need still cost you.
 
-Dune's SQL interface supports `DROP TABLE` and `DROP VIEW`, so you can do this from any
-Trino client or from the Dune app:
+Table maintenance uses the same Dune Trino API endpoint that this dbt project writes to:
+`trino.api.dune.com`. These statements cannot be run from the Dune app. You can use
+any Trino client configured with the equivalent settings in `profiles.yml`.
 
-```sql
-DROP TABLE dune.your_schema.your_table;
+This template includes [`scripts/drop_tables.py`](scripts/drop_tables.py) as an
+intentionally narrow **example, not a supported Dune tool**. It accepts one exact table
+per run and has no bulk or pattern-matching mode. Dry run is the default:
+
+```bash
+uv run python scripts/drop_tables.py \
+  --schema your_schema \
+  --table your_table
 ```
 
-That is all it takes. This template deliberately does not ship a cleanup script: how you
-decide which tables are safe to drop, and how you review that before running it, depends
-on your own environment. If you want to automate it, build it against your own process.
+Passing `--execute` prints the same preview, pauses, and accepts only `Y` or `N`. It
+connects to the API endpoint and drops the table only after an explicit `Y`:
+
+```bash
+uv run python scripts/drop_tables.py \
+  --schema your_schema \
+  --table your_table \
+  --execute
+```
+
+See [`scripts/README.md`](scripts/README.md) for the complete example and prerequisites.
 
 ## ⚠️ NOTE ⚠️
 
@@ -304,6 +318,8 @@ models/          # dbt models and templates
 macros/          # Custom Dune macros (schema overrides, sources)
   └── dune_dbt_overrides/
       └── get_custom_schema.sql  # Controls schema naming based on target
+scripts/         # Example maintenance scripts (not supported Dune tooling)
+  └── drop_tables.py  # Preview or drop one exact table
 .cursor/         # Cursor AI rules (dbt-best-practices.mdc)
   └── rules/
       └── dbt-best-practices.mdc  # dbt patterns and configurations
