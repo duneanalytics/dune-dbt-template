@@ -14,6 +14,19 @@ equivalent settings in `profiles.yml`; this script demonstrates one approach.
 The script deliberately has no bulk mode, schema sweep, or pattern matching.
 `--schema` and `--table` are both required, and `%` and `*` are rejected.
 
+### Tables only, not views
+
+The script emits `drop table`, so it cannot drop a view. That matters here because
+`view` is this project's default materialization, set in `dbt_project.yml`. Pointing
+the script at a view leaves the view in place and fails with an opaque
+`Drop failed: error 405`, which is an HTTP rejection rather than a SQL error, so it
+will not tell you what went wrong. Drop views with a plain statement from the same
+Trino client:
+
+```sql
+DROP VIEW dune.your_schema.your_view;
+```
+
 ### Preview one table
 
 Dry run is the default. This prints the endpoint and exact `drop table` statement,

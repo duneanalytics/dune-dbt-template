@@ -29,7 +29,8 @@ any Trino client configured with the equivalent settings in `profiles.yml`.
 
 This template includes [`scripts/drop_tables.py`](scripts/drop_tables.py) as an
 intentionally narrow **example, not a supported Dune tool**. It accepts one exact table
-per run and has no bulk or pattern-matching mode. Dry run is the default:
+per run, does not handle views, and has no bulk or pattern-matching mode. Dry run is
+the default:
 
 ```bash
 uv run python scripts/drop_tables.py \
