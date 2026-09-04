@@ -69,7 +69,7 @@ When you're ready to enable automated dbt runs on PRs, pushes to main, or a sche
 - **[Getting Started](docs/getting-started.md)** - Initial setup for new developers
 - **[Development Workflow](docs/development-workflow.md)** - How to develop models
 - **[dbt Best Practices](docs/dbt-best-practices.md)** - Patterns and configurations
-- **[Dune Table Visibility](docs/dune-table-visibility.md)** - Control public/private access to tables
+- **[Dune Table Privacy](docs/dune-table-privacy.md)** - Control public/private access to tables
 - **[Dune Datashares](docs/dune-datashares.md)** - Sync tables to external warehouses
 - **[Testing](docs/testing.md)** - Test requirements
 - **[CI/CD](docs/cicd.md)** - GitHub Actions workflows
@@ -205,7 +205,7 @@ This template includes an opt-in datashare post-hook for `table` and `incrementa
 
 See [docs/dune-datashares.md](docs/dune-datashares.md) for the full setup, `run-operation` examples, monitoring queries, and cleanup commands.
 
-## Table Visibility
+## Table Privacy
 
 By default, all tables are **private** — only your team can see or query them. Setting `meta.dune.public: true` makes a table accessible to all Dune users: queryable via the SQL editor, API, dashboards, and visible in the data explorer.
 
@@ -221,9 +221,9 @@ By default, all tables are **private** — only your team can see or query them.
 ) }}
 ```
 
-Visibility is only applied in the `prod` target and has no effect in development. Views are not supported at this time.
+Privacy is only applied in the `prod` target and has no effect in development. Views are skipped: their privacy cannot be changed after creation, and a view over private tables stays restricted anyway.
 
-See **[Dune Table Visibility](docs/dune-table-visibility.md)** for folder-level config, incremental models, and raw SQL reference.
+See **[Dune Table Privacy](docs/dune-table-privacy.md)** for folder-level config, incremental models, and raw SQL reference.
 
 ## GitHub Actions
 

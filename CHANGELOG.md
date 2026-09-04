@@ -4,6 +4,10 @@ All notable changes to this template will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **Renamed "table visibility" to "table privacy"** (breaking): the `set_table_visibility` macro is now `set_table_privacy`, `macros/dune_dbt_overrides/set_table_visibility.sql` is now `set_table_privacy.sql`, and `docs/dune-table-visibility.md` is now `docs/dune-table-privacy.md`. Dune's catalog already uses "visibility" for a separate, admin-only property that controls Data Explorer listing. If you call `set_table_visibility` outside the `dbt_project.yml` post-hook, rename the call. The `meta.dune.public` config and the underlying `dune.public` property are unchanged.
+- **Clarified view privacy**: the post-hook still skips views, but the docs no longer imply this leaves them exposed. A view's privacy cannot be changed after creation, and reading a view authorizes against each underlying table, so a view over private tables stays restricted.
+
 ### Fixed
 - **Datashare `run-operation` could sync dev schemas**: `datashare_trigger_sync_operation` had no target guard, so running it without `--target prod` registered the dev temp schema (`<team>__tmp_<suffix>`) as a real datashare and shipped it to the destination warehouse. It now raises a clear error outside `prod`, naming the schema it would have registered. `dry_run: true` is still permitted on any target, and `allow_prod_only: false` is available as an explicit override.
 - **Datashare docs omitted `--target prod`**: all `run-operation` examples in `docs/dune-datashares.md` now pass `--target prod`, with a note explaining why it matters.
