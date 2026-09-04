@@ -7,8 +7,8 @@
   ])
 {%- endmacro -%}
 
-{# post-hook that sets dune.public via ALTER TABLE on every table/incremental run (prod only). Setting visibility for views is not supported at this time. #}
-{% macro set_table_visibility(this, materialization) %}
+{# post-hook that sets dune.public via ALTER TABLE on every table/incremental run (prod only). Views are skipped: their privacy cannot be changed after creation, and a view over private tables stays restricted anyway. #}
+{% macro set_table_privacy(this, materialization) %}
 {%- if target.name == 'prod'
     and materialization in ('table', 'incremental') -%}
   {%- set dune_public = config.get('meta', {}).get('dune', {}).get('public', false) -%}
