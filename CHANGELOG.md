@@ -4,6 +4,9 @@ All notable changes to this template will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **DataShare CDF**: `meta.datashare.is_cdf` opts a model into DataShare CDF delivery instead of the legacy time-window sync, with optional `meta.datashare.partitioning` to partition the share on a raw date/timestamp column. CDF is watermark-driven, so the `time_*` keys do not apply. Delivery is Snowflake-only, so set `target_type: snowflake`. See `docs/dune-datashares.md`.
+
 ### Fixed
 - **Datashare `run-operation` could sync dev schemas**: `datashare_trigger_sync_operation` had no target guard, so running it without `--target prod` registered the dev temp schema (`<team>__tmp_<suffix>`) as a real datashare and shipped it to the destination warehouse. It now raises a clear error outside `prod`, naming the schema it would have registered. `dry_run: true` is still permitted on any target, and `allow_prod_only: false` is available as an explicit override.
 - **Datashare docs omitted `--target prod`**: all `run-operation` examples in `docs/dune-datashares.md` now pass `--target prod`, with a note explaining why it matters.
