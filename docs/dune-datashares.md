@@ -80,15 +80,47 @@ All datashare config lives under `meta.datashare` in the model `config()` block.
 | Property                 | Required | Type           | Description                                                                 |
 | ------------------------ | -------- | -------------- | --------------------------------------------------------------------------- |
 | `enabled`                | Yes      | `boolean`      | Must be `true` to trigger sync.                                             |
-| `time_column`            | Yes      | `string`       | Column used to define the sync window.                                      |
-| `time_start`             | Yes      | `string`       | SQL expression for the start of the full-refresh sync window.               |
+| `time_column`            | Yes\*    | `string`       | Column used to define the sync window. Not used when `is_cdf` is `true`.    |
+| `time_start`             | Yes\*    | `string`       | SQL expression for the start of the full-refresh sync window.               |
 | `time_start_incremental` | No       | `string`       | SQL expression for incremental runs. Falls back to `time_start` if omitted. |
 | `time_end`               | No       | `string`       | SQL expression for the end of the sync window. Defaults to `now()`.         |
 | `unique_key_columns`     | No       | `list[string]` | Row identity columns. Falls back to the model `unique_key` if omitted.      |
+| `is_cdf`                 | No       | `boolean`      | Opt into DataShare CDF delivery. Defaults to `false` (legacy path).         |
+| `partitioning`           | No       | `string`       | Raw, untransformed date/timestamp source column to partition the CDF share on. |
+
+\* Required for the legacy time-window path only. Omit them for `is_cdf: true` models.
 
 All time expressions are SQL, not literal timestamps. The macro wraps them in `CAST(... AS VARCHAR)` before calling the table procedure.
 
 Keep the sync window aligned with the `time_column` granularity. For example, if `time_column` is a `date`, use date-based expressions like `current_date - interval '1' day`, not hour-based timestamp windows.
+
+### DataShare CDF
+
+Set `meta.datashare.is_cdf: true` to route a model through the DataShare CDF contract instead of the legacy time-window sync. CDF is watermark-driven, so the time keys do not apply — delete them.
+
+Also set `target_type: snowflake`. CDF delivers to Snowflake only, and omitting the target is accepted by dbt but rejected once the statement reaches Trino.
+
+```sql
+{{ config(
+    materialized = 'incremental'
+    , incremental_strategy = 'merge'
+    , unique_key = ['block_number', 'block_date']
+    , meta = {
+        "datashare": {
+            "enabled": true,
+            "is_cdf": true,
+            "partitioning": "block_date",
+            "target_type": "snowflake"
+        }
+    }
+) }}
+
+select ...
+```
+
+`full_refresh` re-bootstraps the destination: it is re-copied in full from the current source snapshot instead of advancing from the last watermark. Changing `partitioning` on an existing sync requires it, and is rejected while a bootstrap is in flight.
+
+Setting `partitioning` without `is_cdf: true` is rejected by Trino, not by dbt.
 
 ## Cadence and sync windows
 
@@ -150,6 +182,8 @@ The macro determines `full_refresh` automatically:
 | Table materialization post-hook                        | `true`                    |
 | `run-operation`                                        | `false` unless overridden |
 
+For `is_cdf: true` models this table is the only source of `full_refresh`; there is no active-sync probe.
+
 ## Generated SQL
 
 The post-hook generates this Trino statement:
@@ -163,6 +197,20 @@ ALTER TABLE dune.<schema>.<table> EXECUTE datashare(
     full_refresh => true|false
 )
 ```
+
+With `is_cdf: true`, the time-window properties are dropped:
+
+```sql
+ALTER TABLE dune.<schema>.<table> EXECUTE datashare(
+    is_cdf => true,
+    unique_key_columns => ARRAY['col1', 'col2'],
+    full_refresh => true|false,
+    target_type => 'snowflake',
+    partitioning => '<column_name>'
+)
+```
+
+`target_type` / `target_region` / `partitioning` are appended in both modes only when configured.
 
 ## Manual Syncs
 

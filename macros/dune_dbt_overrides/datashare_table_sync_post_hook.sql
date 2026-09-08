@@ -81,6 +81,9 @@
         {{ log('Skipping datashare sync for ' ~ model_ref ~ ': materialization "' ~ materialized ~ '" is not incremental/table.') }}
         {{ return(none) }}
     {%- endif -%}
+    {%- set is_cdf = datashare.get('is_cdf') is sameas true -%}
+    {%- set partitioning = datashare.get('partitioning') -%}
+    {%- set include_partitioning = partitioning is not none and partitioning | string | trim != '' -%}
     {%- set time_column = datashare.get('time_column') -%}
     {%- set resolved_time_start = time_start if time_start is not none else datashare.get('time_start') -%}
     {%- set resolved_time_end = time_end if time_end is not none else datashare.get('time_end', 'now()') -%}
@@ -92,24 +95,36 @@
     {#- An incremental sync targets an existing destination via MERGE. If the
         destination sync was revoked while the source table still exists, dbt
         builds incrementally but there is nothing to merge into. Force a full
-        refresh when no active sync is registered for this table/target. -#}
-    {%- if not full_refresh and not _datashare_active_sync_exists(schema_name, table_name, target_type, target_region) -%}
+        refresh when no active sync is registered for this table/target.
+        CDF bootstrap classification happens on the Dune side instead: skip the
+        probe so an explicit CDF request is not forced through a spurious
+        re-bootstrap. -#}
+    {%- if not is_cdf and not full_refresh and not _datashare_active_sync_exists(schema_name, table_name, target_type, target_region) -%}
         {{ log('No active datashare sync for ' ~ model_ref ~ '; forcing full_refresh.', info=True) }}
         {%- set full_refresh = true -%}
     {%- endif -%}
 
     {%- set sql -%}
 ALTER TABLE {{ catalog_name }}.{{ schema_name }}.{{ table_name }} EXECUTE datashare(
+{%- if is_cdf -%}
+    is_cdf => true,
+    unique_key_columns => {{ _datashare_unique_key_columns_sql(datashare.get('unique_key_columns', unique_key)) }},
+    full_refresh => {{ 'true' if full_refresh else 'false' }}
+{%- else -%}
     time_column => {{ _datashare_sql_string(time_column | default('', true)) }},
     unique_key_columns => {{ _datashare_unique_key_columns_sql(datashare.get('unique_key_columns', unique_key)) }},
     time_start => {{ _datashare_optional_time_sql(resolved_time_start) }},
     time_end => {{ _datashare_optional_time_sql(resolved_time_end) }},
     full_refresh => {{ 'true' if full_refresh else 'false' }}
+{%- endif -%}
 {%- if include_target_type -%}
     , target_type => {{ _datashare_sql_string(target_type) }}
 {%- endif -%}
 {%- if include_target_region -%}
     , target_region => {{ _datashare_sql_string(target_region) }}
+{%- endif -%}
+{%- if include_partitioning -%}
+    , partitioning => {{ _datashare_sql_string(partitioning) }}
 {%- endif -%}
 )
     {%- endset -%}
