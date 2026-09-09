@@ -104,7 +104,7 @@ Dune advances the share from the last completed sync, so there are no time keys.
 
 `unique_key_columns` comes from the model-level `unique_key` config.
 
-Dune delivers to the target your team has registered, so there are no target keys either. This kind of share is delivered to Snowflake only.
+Dune delivers to the target your team has registered, so there are no target keys either.
 
 ```sql
 {{ config(
