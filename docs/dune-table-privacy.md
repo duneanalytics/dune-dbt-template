@@ -1,12 +1,12 @@
-# Dune Table Visibility
+# Dune Table Privacy
 
 Control whether a table is accessible to other Dune users using the `meta.dune.public` config.
 
 By default, tables created by dbt are **private** — only your team can see or query them. Public tables are accessible to all Dune users: they appear in the data explorer, can be queried via the SQL editor or API, and can be referenced in other users' queries and dashboards.
 
-For the full SQL reference, see the [official Dune docs on Table Visibility](https://docs.dune.com/api-reference/connectors/sql-operations#table-visibility).
+For the full SQL reference, see the [official Dune docs on Table Privacy](https://docs.dune.com/api-reference/connectors/sql-operations#table-privacy).
 
-Implemented by [`macros/dune_dbt_overrides/set_table_visibility.sql`](../macros/dune_dbt_overrides/set_table_visibility.sql).
+Implemented by [`macros/dune_dbt_overrides/set_table_privacy.sql`](../macros/dune_dbt_overrides/set_table_privacy.sql).
 
 ## dbt config
 
@@ -26,14 +26,14 @@ Set `meta.dune.public` in your model config:
 select ...
 ```
 
-The `set_table_visibility` post-hook runs `ALTER TABLE ... SET PROPERTIES extra_properties = ...` automatically after each model run.
+The `set_table_privacy` post-hook runs `ALTER TABLE ... SET PROPERTIES extra_properties = ...` automatically after each model run.
 
-| `meta.dune.public` | Visibility |
+| `meta.dune.public` | Privacy |
 |---|---|
 | `true` | Public — queryable by all Dune users, visible in data explorer, SQL editor, API |
 | `false` or absent | Private (default) — only accessible to your team |
 
-Visibility is only applied in the **`prod` target** — it has no effect in development.
+Privacy is only applied in the **`prod` target** — it has no effect in development.
 
 ## Folder-level config
 
@@ -50,7 +50,7 @@ models:
 
 ## Incremental models
 
-Same config — the post-hook runs on every `dbt run`, so visibility is kept in sync:
+Same config — the post-hook runs on every `dbt run`, so privacy is kept in sync:
 
 ```sql
 {{ config(
@@ -73,9 +73,9 @@ select ...
 
 ## Views
 
-View visibility is **not supported** by the post-hook macro at this time.
+The post-hook skips views, because a view's privacy cannot be changed after it is created. This does not leave data exposed: reading a view still authorizes against each underlying table, so a view over private tables stays restricted to your team.
 
-## Changing visibility on existing tables
+## Changing privacy on existing tables
 
 Via any Trino client or `dbt run-operation`:
 
