@@ -53,8 +53,8 @@
 {%- endmacro -%}
 
 {#
-    Datashare sync macro - generates ALTER TABLE ... EXECUTE datashare() SQL.
-    Config reference and usage: docs/dune-datashares.md
+    Datashare sync macro - generates ALTER TABLE ... EXECUTE datashare()/sync_datashare()
+    SQL depending on which meta block is configured. Config reference: docs/dune-datashares.md
 #}
 {% macro _datashare_table_sync_sql(
     schema_name
@@ -68,22 +68,76 @@
     , catalog_name=target.database
 ) %}
     {%- set model_ref = schema_name ~ '.' ~ table_name -%}
-    {%- if meta is not mapping or meta.get('datashare') is none or meta.get('datashare') is not mapping -%}
-        {{ log('Skipping datashare sync for ' ~ model_ref ~ ': meta.datashare is not configured.', info=True) }}
+    {%- set legacy_datashare = meta.get('datashare') if meta is mapping else none -%}
+    {%- set datashare_sync = meta.get('datashare_sync') if meta is mapping else none -%}
+    {%- set has_legacy = legacy_datashare is mapping -%}
+    {%- set has_sync = datashare_sync is mapping -%}
+
+    {%- if has_legacy and has_sync -%}
+        {{ exceptions.raise_compiler_error(
+            "Model " ~ model_ref ~ " has both meta.datashare and meta.datashare_sync configured."
+            ~ " Keep exactly one: meta.datashare to sync a time window,"
+            ~ " meta.datashare_sync to sync without one."
+        ) }}
+    {%- endif -%}
+
+    {%- if not has_legacy and not has_sync -%}
+        {{ log('Skipping datashare sync for ' ~ model_ref ~ ': neither meta.datashare nor meta.datashare_sync is configured.', info=True) }}
         {{ return(none) }}
     {%- endif -%}
-    {%- set datashare = meta.get('datashare') -%}
-    {%- if datashare.get('enabled') is not sameas true -%}
-        {{ log('Skipping datashare sync for ' ~ model_ref ~ ': meta.datashare.enabled is not true.', info=True) }}
-        {{ return(none) }}
-    {%- endif -%}
+
     {%- if materialized not in ['incremental', 'table'] -%}
         {{ log('Skipping datashare sync for ' ~ model_ref ~ ': materialization "' ~ materialized ~ '" is not incremental/table.') }}
         {{ return(none) }}
     {%- endif -%}
-    {%- set is_cdf = datashare.get('is_cdf') is sameas true -%}
-    {%- set partitioning = datashare.get('partitioning') -%}
-    {%- set include_partitioning = partitioning is not none and partitioning | string | trim != '' -%}
+
+    {%- if has_sync -%}
+        {#- Reject anything this block does not act on, so a misspelled key fails
+            loudly instead of silently syncing a different shape than asked for. -#}
+        {%- set supported_sync_keys = ['enabled', 'partitioning'] -%}
+        {%- set unsupported_keys = [] -%}
+        {%- for key in datashare_sync.keys() -%}
+            {%- if key not in supported_sync_keys -%}
+                {%- do unsupported_keys.append(key) -%}
+            {%- endif -%}
+        {%- endfor -%}
+        {%- if unsupported_keys | length > 0 -%}
+            {{ exceptions.raise_compiler_error(
+                "Model " ~ model_ref ~ " has unsupported meta.datashare_sync keys: "
+                ~ (unsupported_keys | sort | join(', '))
+                ~ ". Supported keys: " ~ (supported_sync_keys | join(', ')) ~ "."
+            ) }}
+        {%- endif -%}
+        {%- if time_start is not none or time_end is not none -%}
+            {{ exceptions.raise_compiler_error(
+                "Model " ~ model_ref ~ " uses meta.datashare_sync, which syncs without a time window."
+                ~ " Drop time_start/time_end."
+            ) }}
+        {%- endif -%}
+        {%- if datashare_sync.get('enabled') is not sameas true -%}
+            {{ log('Skipping datashare sync for ' ~ model_ref ~ ': meta.datashare_sync.enabled is not true.', info=True) }}
+            {{ return(none) }}
+        {%- endif -%}
+        {%- set partitioning = datashare_sync.get('partitioning') -%}
+        {%- set include_partitioning = partitioning is not none and partitioning | string | trim != '' -%}
+        {%- set sql -%}
+ALTER TABLE {{ catalog_name }}.{{ schema_name }}.{{ table_name }} EXECUTE sync_datashare(
+    unique_key_columns => {{ _datashare_unique_key_columns_sql(unique_key) }},
+    full_refresh => {{ 'true' if full_refresh else 'false' }}
+{%- if include_partitioning -%}
+    , partitioning => {{ _datashare_sql_string(partitioning) }}
+{%- endif -%}
+)
+        {%- endset -%}
+        {{ log('datashare sync preview for ' ~ model_ref ~ ':\n' ~ sql, info=True) }}
+        {{ return(sql) }}
+    {%- endif -%}
+
+    {%- set datashare = legacy_datashare -%}
+    {%- if datashare.get('enabled') is not sameas true -%}
+        {{ log('Skipping datashare sync for ' ~ model_ref ~ ': meta.datashare.enabled is not true.', info=True) }}
+        {{ return(none) }}
+    {%- endif -%}
     {%- set time_column = datashare.get('time_column') -%}
     {%- set resolved_time_start = time_start if time_start is not none else datashare.get('time_start') -%}
     {%- set resolved_time_end = time_end if time_end is not none else datashare.get('time_end', 'now()') -%}
@@ -95,36 +149,24 @@
     {#- An incremental sync targets an existing destination via MERGE. If the
         destination sync was revoked while the source table still exists, dbt
         builds incrementally but there is nothing to merge into. Force a full
-        refresh when no active sync is registered for this table/target.
-        CDF bootstrap classification happens on the Dune side instead: skip the
-        probe so an explicit CDF request is not forced through a spurious
-        re-bootstrap. -#}
-    {%- if not is_cdf and not full_refresh and not _datashare_active_sync_exists(schema_name, table_name, target_type, target_region) -%}
+        refresh when no active sync is registered for this table/target. -#}
+    {%- if not full_refresh and not _datashare_active_sync_exists(schema_name, table_name, target_type, target_region) -%}
         {{ log('No active datashare sync for ' ~ model_ref ~ '; forcing full_refresh.', info=True) }}
         {%- set full_refresh = true -%}
     {%- endif -%}
 
     {%- set sql -%}
 ALTER TABLE {{ catalog_name }}.{{ schema_name }}.{{ table_name }} EXECUTE datashare(
-{%- if is_cdf -%}
-    is_cdf => true,
-    unique_key_columns => {{ _datashare_unique_key_columns_sql(datashare.get('unique_key_columns', unique_key)) }},
-    full_refresh => {{ 'true' if full_refresh else 'false' }}
-{%- else -%}
     time_column => {{ _datashare_sql_string(time_column | default('', true)) }},
     unique_key_columns => {{ _datashare_unique_key_columns_sql(datashare.get('unique_key_columns', unique_key)) }},
     time_start => {{ _datashare_optional_time_sql(resolved_time_start) }},
     time_end => {{ _datashare_optional_time_sql(resolved_time_end) }},
     full_refresh => {{ 'true' if full_refresh else 'false' }}
-{%- endif -%}
 {%- if include_target_type -%}
     , target_type => {{ _datashare_sql_string(target_type) }}
 {%- endif -%}
 {%- if include_target_region -%}
     , target_region => {{ _datashare_sql_string(target_region) }}
-{%- endif -%}
-{%- if include_partitioning -%}
-    , partitioning => {{ _datashare_sql_string(partitioning) }}
 {%- endif -%}
 )
     {%- endset -%}
@@ -226,7 +268,7 @@ ALTER TABLE {{ catalog_name }}.{{ schema_name }}.{{ table_name }} EXECUTE datash
     ) -%}
 
     {%- if sql is none -%}
-        {{ exceptions.raise_compiler_error("Cannot sync " ~ node.schema ~ "." ~ table_name ~ ": model must be incremental or table with meta.datashare.enabled = true.") }}
+        {{ exceptions.raise_compiler_error("Cannot sync " ~ node.schema ~ "." ~ table_name ~ ": model must be incremental or table with meta.datashare.enabled or meta.datashare_sync.enabled set to true.") }}
     {%- endif -%}
 
     {%- if not is_dry_run -%}

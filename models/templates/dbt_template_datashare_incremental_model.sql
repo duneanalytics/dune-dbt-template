@@ -9,16 +9,8 @@
 -- full day from the destination (24x amplification on cross-region S3 buckets).
 -- For hourly freshness, see the "Hourly cadence" example in the docs.
 --
--- To opt this model into DataShare CDF instead (see the "DataShare CDF"
--- section of docs/dune-datashares.md), replace the time keys in meta.datashare
--- below with:
---   "is_cdf": true,
---   "partitioning": "block_date",
---   "target_type": "snowflake"
---
--- CDF is watermark-driven, so `time_column`, `time_start`,
--- `time_start_incremental` and `time_end` are unused under `is_cdf` -- delete
--- them from meta.datashare.
+-- For a datashare that syncs without a time window, see
+-- dbt_template_datashare_sync_model.sql.
 {%- set time_start_incremental = "current_date - interval '1' day" -%}
 {%- set time_start = "current_date - interval '2' day" -%}
 {%- set time_end = "current_date + interval '1' day" -%}

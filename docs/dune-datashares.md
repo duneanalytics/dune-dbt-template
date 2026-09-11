@@ -21,8 +21,9 @@ This template ships with datashare support already wired in:
 - `macros/dune_dbt_overrides/datashare_table_sync_post_hook.sql`
 - a global post-hook in `dbt_project.yml` that calls `datashare_trigger_sync()`
 - an opt-in example model at `models/templates/dbt_template_datashare_incremental_model.sql`
+- a DataShare sync example model at `models/templates/dbt_template_datashare_sync_model.sql`
 
-Models without `meta.datashare` are unchanged. The hook skips them.
+Models without `meta.datashare` or `meta.datashare_sync` are unchanged. The hook skips them.
 
 The built-in post-hook only executes on the `prod` target, so local `dev` runs and CI temp schemas do not create datashare syncs by default.
 
@@ -75,30 +76,35 @@ The post-hook macro evaluates `is_incremental()` at execution time and picks the
 
 ## Configuration Reference
 
-All datashare config lives under `meta.datashare` in the model `config()` block.
+Time-window config lives under `meta.datashare` in the model `config()` block. Models that sync without a time window use `meta.datashare_sync` instead.
 
 | Property                 | Required | Type           | Description                                                                 |
 | ------------------------ | -------- | -------------- | --------------------------------------------------------------------------- |
 | `enabled`                | Yes      | `boolean`      | Must be `true` to trigger sync.                                             |
-| `time_column`            | Yes\*    | `string`       | Column used to define the sync window. Not used when `is_cdf` is `true`.    |
-| `time_start`             | Yes\*    | `string`       | SQL expression for the start of the full-refresh sync window.               |
+| `time_column`            | Yes      | `string`       | Column used to define the sync window.                                     |
+| `time_start`             | Yes      | `string`       | SQL expression for the start of the full-refresh sync window.               |
 | `time_start_incremental` | No       | `string`       | SQL expression for incremental runs. Falls back to `time_start` if omitted. |
 | `time_end`               | No       | `string`       | SQL expression for the end of the sync window. Defaults to `now()`.         |
 | `unique_key_columns`     | No       | `list[string]` | Row identity columns. Falls back to the model `unique_key` if omitted.      |
-| `is_cdf`                 | No       | `boolean`      | Opt into DataShare CDF delivery. Defaults to `false` (legacy path).         |
-| `partitioning`           | No       | `string`       | Raw, untransformed date/timestamp source column to partition the CDF share on. |
-
-\* Required for the legacy time-window path only. Omit them for `is_cdf: true` models.
 
 All time expressions are SQL, not literal timestamps. The macro wraps them in `CAST(... AS VARCHAR)` before calling the table procedure.
 
 Keep the sync window aligned with the `time_column` granularity. For example, if `time_column` is a `date`, use date-based expressions like `current_date - interval '1' day`, not hour-based timestamp windows.
 
-### DataShare CDF
+### DataShare sync
 
-Set `meta.datashare.is_cdf: true` to route a model through the DataShare CDF contract instead of the legacy time-window sync. CDF is watermark-driven, so the time keys do not apply — delete them.
+Add a `meta.datashare_sync` block instead of `meta.datashare` to sync a model without defining a time window. A model cannot carry both blocks — dbt fails compilation naming both keys, telling you to keep exactly one.
 
-Also set `target_type: snowflake`. CDF delivers to Snowflake only, and omitting the target is accepted by dbt but rejected once the statement reaches Trino.
+Dune advances the share from the last completed sync, so there are no time keys.
+
+| Property         | Required | Type      | Description                                                                     |
+| ---------------- | -------- | --------- | -------------------------------------------------------------------------------- |
+| `enabled`        | Yes      | `boolean` | Must be `true` to trigger sync.                                                 |
+| `partitioning`   | No       | `string`  | Raw, untransformed date/timestamp source column to partition the share on. |
+
+`unique_key_columns` comes from the model-level `unique_key` config, which must be set and non-empty.
+
+Dune delivers to the target your team has registered, so there are no target keys either.
 
 ```sql
 {{ config(
@@ -106,11 +112,9 @@ Also set `target_type: snowflake`. CDF delivers to Snowflake only, and omitting 
     , incremental_strategy = 'merge'
     , unique_key = ['block_number', 'block_date']
     , meta = {
-        "datashare": {
+        "datashare_sync": {
             "enabled": true,
-            "is_cdf": true,
-            "partitioning": "block_date",
-            "target_type": "snowflake"
+            "partitioning": "block_date"
         }
     }
 ) }}
@@ -119,8 +123,6 @@ select ...
 ```
 
 `full_refresh` re-bootstraps the destination: it is re-copied in full from the current source snapshot instead of advancing from the last watermark. Changing `partitioning` on an existing sync requires it, and is rejected while a bootstrap is in flight.
-
-Setting `partitioning` without `is_cdf: true` is rejected by Trino, not by dbt.
 
 ## Cadence and sync windows
 
@@ -182,7 +184,7 @@ The macro determines `full_refresh` automatically:
 | Table materialization post-hook                        | `true`                    |
 | `run-operation`                                        | `false` unless overridden |
 
-For `is_cdf: true` models this table is the only source of `full_refresh`; there is no active-sync probe.
+For `meta.datashare_sync` models this table is the only source of `full_refresh`; there is no active-sync probe.
 
 ## Generated SQL
 
@@ -198,19 +200,19 @@ ALTER TABLE dune.<schema>.<table> EXECUTE datashare(
 )
 ```
 
-With `is_cdf: true`, the time-window properties are dropped:
+`target_type` / `target_region` are appended only when configured.
+
+A `meta.datashare_sync` model calls a different procedure, with no time-window properties:
 
 ```sql
-ALTER TABLE dune.<schema>.<table> EXECUTE datashare(
-    is_cdf => true,
+ALTER TABLE dune.<schema>.<table> EXECUTE sync_datashare(
     unique_key_columns => ARRAY['col1', 'col2'],
     full_refresh => true|false,
-    target_type => 'snowflake',
     partitioning => '<column_name>'
 )
 ```
 
-`target_type` / `target_region` / `partitioning` are appended in both modes only when configured.
+`partitioning` is appended only when configured.
 
 ## Manual Syncs
 
@@ -273,13 +275,19 @@ ORDER BY created_at DESC;
 
 ## Cleanup
 
-Remove a table from datashare with:
+Remove a `meta.datashare` table from datashare with:
 
 ```sql
 ALTER TABLE dune.<schema>.<table> EXECUTE delete_datashare
 ```
 
-This stops the sync and revokes access to the destination.
+A `meta.datashare_sync` table uses the matching procedure:
+
+```sql
+ALTER TABLE dune.<schema>.<table> EXECUTE delete_datashare_sync
+```
+
+Either one stops the sync and revokes access to the destination.
 
 ## S3 Export
 
