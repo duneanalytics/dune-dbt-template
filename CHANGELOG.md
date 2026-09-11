@@ -5,7 +5,7 @@ All notable changes to this template will be documented in this file.
 ## [Unreleased]
 
 ### Added
-- **DataShare sync**: a `meta.datashare_sync` block syncs a model without defining a time window, with an optional `partitioning` key to partition the share on a raw date/timestamp column. Dune advances the share from the last completed sync, so there are no time keys. Delivery is Snowflake-only, so set `target_type: snowflake`. A model cannot carry both `meta.datashare` and `meta.datashare_sync`. See `docs/dune-datashares.md`.
+- **DataShare sync**: a `meta.datashare_sync` block syncs a model without defining a time window, with an optional `partitioning` key to partition the share on a raw date/timestamp column. Dune advances the share from the last completed sync, so there are no time keys, and it delivers to your registered destination without you naming one. A model cannot carry both `meta.datashare` and `meta.datashare_sync`. Remove one of these shares with `delete_datashare_sync`, as `delete_datashare` removes a `meta.datashare` one. See `docs/dune-datashares.md`.
 
 ### Changed
 - **Renamed "table visibility" to "table privacy"** (breaking): the `set_table_visibility` macro is now `set_table_privacy`, `macros/dune_dbt_overrides/set_table_visibility.sql` is now `set_table_privacy.sql`, and `docs/dune-table-visibility.md` is now `docs/dune-table-privacy.md`. Dune's catalog already uses "visibility" for a separate, admin-only property that controls Data Explorer listing. If you call `set_table_visibility` outside the `dbt_project.yml` post-hook, rename the call. The `meta.dune.public` config and the underlying `dune.public` property are unchanged.

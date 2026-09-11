@@ -275,13 +275,19 @@ ORDER BY created_at DESC;
 
 ## Cleanup
 
-Remove a table from datashare with:
+Remove a `meta.datashare` table from datashare with:
 
 ```sql
 ALTER TABLE dune.<schema>.<table> EXECUTE delete_datashare
 ```
 
-This stops the sync and revokes access to the destination.
+A `meta.datashare_sync` table uses the matching procedure:
+
+```sql
+ALTER TABLE dune.<schema>.<table> EXECUTE delete_datashare_sync
+```
+
+Either one stops the sync and revokes access to the destination.
 
 ## S3 Export
 
