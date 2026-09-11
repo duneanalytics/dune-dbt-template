@@ -102,7 +102,7 @@ Dune advances the share from the last completed sync, so there are no time keys.
 | `enabled`        | Yes      | `boolean` | Must be `true` to trigger sync.                                                 |
 | `partitioning`   | No       | `string`  | Raw, untransformed date/timestamp source column to partition the share on. |
 
-`unique_key_columns` comes from the model-level `unique_key` config.
+`unique_key_columns` comes from the model-level `unique_key` config, which must be set and non-empty.
 
 Dune delivers to the target your team has registered, so there are no target keys either.
 

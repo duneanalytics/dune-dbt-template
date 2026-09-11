@@ -92,6 +92,28 @@
     {%- endif -%}
 
     {%- if has_sync -%}
+        {#- Reject anything this block does not act on, so a misspelled key fails
+            loudly instead of silently syncing a different shape than asked for. -#}
+        {%- set supported_sync_keys = ['enabled', 'partitioning'] -%}
+        {%- set unsupported_keys = [] -%}
+        {%- for key in datashare_sync.keys() -%}
+            {%- if key not in supported_sync_keys -%}
+                {%- do unsupported_keys.append(key) -%}
+            {%- endif -%}
+        {%- endfor -%}
+        {%- if unsupported_keys | length > 0 -%}
+            {{ exceptions.raise_compiler_error(
+                "Model " ~ model_ref ~ " has unsupported meta.datashare_sync keys: "
+                ~ (unsupported_keys | sort | join(', '))
+                ~ ". Supported keys: " ~ (supported_sync_keys | join(', ')) ~ "."
+            ) }}
+        {%- endif -%}
+        {%- if time_start is not none or time_end is not none -%}
+            {{ exceptions.raise_compiler_error(
+                "Model " ~ model_ref ~ " uses meta.datashare_sync, which syncs without a time window."
+                ~ " Drop time_start/time_end."
+            ) }}
+        {%- endif -%}
         {%- if datashare_sync.get('enabled') is not sameas true -%}
             {{ log('Skipping datashare sync for ' ~ model_ref ~ ': meta.datashare_sync.enabled is not true.', info=True) }}
             {{ return(none) }}
