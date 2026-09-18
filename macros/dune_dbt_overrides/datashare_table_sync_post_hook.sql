@@ -20,6 +20,23 @@
 {%- endmacro -%}
 
 {#
+    DataShare sync requires change_data_feed_enabled on the source table at
+    CREATE time. Fail early if the model config omitted it.
+#}
+{% macro _datashare_sync_validate_cdf(model_ref, properties) %}
+    {%- set props = properties if properties is mapping else {} -%}
+    {%- set cdf_raw = props.get('change_data_feed_enabled') -%}
+    {%- set cdf_enabled = cdf_raw is sameas true or (cdf_raw | string | lower | trim) == 'true' -%}
+    {%- if not cdf_enabled -%}
+        {{ exceptions.raise_compiler_error(
+            "Model " ~ model_ref ~ " uses meta.datashare_sync and must set "
+            ~ "properties.change_data_feed_enabled = true so Dune can sync "
+            ~ "changes from the table. See docs/dune-datashares.md \"DataShare sync\"."
+        ) }}
+    {%- endif -%}
+{%- endmacro -%}
+
+{#
     Returns true if an active (non-deleted) datashare sync exists for this table.
     Scoped to a target only when both target_type and target_region are given,
     since a partial key would match a different target of the same table.
@@ -66,6 +83,7 @@
     , time_end=None
     , full_refresh=False
     , catalog_name=target.database
+    , properties=None
 ) %}
     {%- set model_ref = schema_name ~ '.' ~ table_name -%}
     {%- set legacy_datashare = meta.get('datashare') if meta is mapping else none -%}
@@ -118,6 +136,7 @@
             {{ log('Skipping datashare sync for ' ~ model_ref ~ ': meta.datashare_sync.enabled is not true.', info=True) }}
             {{ return(none) }}
         {%- endif -%}
+        {{ _datashare_sync_validate_cdf(model_ref, properties) }}
         {%- set partitioning = datashare_sync.get('partitioning') -%}
         {%- set include_partitioning = partitioning is not none and partitioning | string | trim != '' -%}
         {%- set sql -%}
@@ -196,7 +215,8 @@ ALTER TABLE {{ catalog_name }}.{{ schema_name }}.{{ table_name }} EXECUTE datash
         materialized=model.config.materialized,
         unique_key=model.config.get('unique_key'),
         time_start=resolved_time_start,
-        full_refresh=(not is_incremental())
+        full_refresh=(not is_incremental()),
+        properties=model.config.get('properties')
     ) or '') }}
 {%- endmacro -%}
 
@@ -264,7 +284,8 @@ ALTER TABLE {{ catalog_name }}.{{ schema_name }}.{{ table_name }} EXECUTE datash
         time_start=resolved_time_start,
         time_end=time_end,
         full_refresh=is_full_refresh,
-        catalog_name=node.database or target.database
+        catalog_name=node.database or target.database,
+        properties=node_config.get('properties')
     ) -%}
 
     {%- if sql is none -%}
