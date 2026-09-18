@@ -106,6 +106,20 @@ Dune advances the share from the last completed sync, so there are no time keys.
 
 Dune delivers to the target your team has registered, so there are no target keys either.
 
+#### Required table property
+
+DataShare sync reads changes from your table, so the table must enable change data feed at create time. Add this to the model `properties`:
+
+```sql
+, properties = {
+    "change_data_feed_enabled": "true"
+}
+```
+
+You can combine it with other properties such as `partitioned_by`. The post-hook fails compilation if `meta.datashare_sync.enabled` is `true` and `change_data_feed_enabled` is missing or not `true`.
+
+If the table already exists without change data feed, run `dbt run --full-refresh` so dbt recreates it with the new `WITH` clause.
+
 ```sql
 {{ config(
     materialized = 'incremental'
@@ -116,6 +130,10 @@ Dune delivers to the target your team has registered, so there are no target key
             "enabled": true,
             "partitioning": "block_date"
         }
+    }
+    , properties = {
+        "partitioned_by": "ARRAY['block_date']"
+        , "change_data_feed_enabled": "true"
     }
 ) }}
 

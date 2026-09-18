@@ -3,6 +3,9 @@
 -- Dune advances this share from the last completed sync, so there is no time
 -- window to configure and `meta.datashare_sync` carries no time keys.
 --
+-- Set change_data_feed_enabled = true on CREATE (required for DataShare sync).
+-- An existing table without it needs `--full-refresh` so dbt recreates it.
+--
 -- Dune delivers the share to the target your team has registered. This kind of
 -- share is delivered to Snowflake only.
 --
@@ -28,6 +31,7 @@
     }
     , properties = {
         "partitioned_by": "ARRAY['block_date']"
+        , "change_data_feed_enabled": "true"
     }
 ) }}
 
