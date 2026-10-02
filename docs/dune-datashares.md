@@ -1,6 +1,6 @@
 # Dune Datashares
 
-This template uses datashares v2 with change data feed (CDF). Dune copies the source snapshot on the first sync, then applies changes from the last completed watermark. Dune resolves your team's registered destination.
+This template uses datashares with change data feed (CDF). Dune copies the source snapshot on the first sync, then applies changes from the last completed watermark. Dune resolves your team's registered destination.
 
 ## Prerequisites
 
@@ -41,8 +41,10 @@ Use `models/templates/dbt_template_datashare_sync_model.sql` as the starting exa
 ### Required Configuration
 
 - Set `meta.datashare_sync.enabled` to the boolean `true`.
-- Set a non-empty model-level `unique_key` to a column name or list of column names.
+- Set a non-empty model-level `unique_key` to a column name or list of column names. The hook passes these as `unique_key_columns` to `sync_datashare`, so Dune can identify rows when applying changes.
 - Enable `properties.change_data_feed_enabled` when dbt creates the source table.
+
+Use the model's `unique_key` as the single source of row identity. Do not repeat it under `meta.datashare_sync`.
 
 The hook fails compilation if an enabled model lacks CDF or unique keys. Unknown keys under `meta.datashare_sync` also fail compilation.
 
@@ -69,6 +71,10 @@ ALTER TABLE dune.<schema>.<table> EXECUTE sync_datashare(
 ```
 
 The hook omits `partitioning` when it is not configured. It does not query the destination before generating SQL.
+
+## Run Cadence
+
+The example schedule runs every 15 minutes and remains disabled until you enable it. A 10–30 minute cadence is a useful starting point. Incremental syncs apply changes since the last completed watermark; frequent runs do not resend a full snapshot. dbt model queries still consume credits.
 
 ## Full Refresh
 

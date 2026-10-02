@@ -201,7 +201,7 @@ All templates are in `models/templates/`.
 
 ## Datashares
 
-This template uses datashares v2 with change data feed (CDF). For `table` and `incremental` models, set `meta.datashare_sync.enabled: true`, a non-empty model `unique_key`, and `properties.change_data_feed_enabled: "true"`. Dune syncs changes from the last completed watermark to your registered destination.
+This template uses datashares with change data feed (CDF). For `table` and `incremental` models, set `meta.datashare_sync.enabled: true`, a non-empty model `unique_key`, and `properties.change_data_feed_enabled: "true"`. Dune syncs changes from the last completed watermark to your registered destination.
 
 See [docs/dune-datashares.md](docs/dune-datashares.md) for setup, `run-operation` examples, and cleanup commands.
 

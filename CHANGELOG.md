@@ -9,7 +9,7 @@ All notable changes to this template will be documented in this file.
 - **DataShare sync change data feed**: `meta.datashare_sync` models must set `properties.change_data_feed_enabled = true` when the table is created. The post-hook fails compilation if it is missing. See the example model and `docs/dune-datashares.md`.
 
 ### Changed
-- **Datashares v2 only**: use the CDF post-hook in `datashare_sync_post_hook.sql` and `dbt_template_datashare_sync_model.sql`. Syncs require a non-empty model `unique_key` and CDF enabled at table creation.
+- **Changefeed datashares**: use the CDF post-hook in `datashare_sync_post_hook.sql` and `dbt_template_datashare_sync_model.sql`. Syncs require a non-empty model `unique_key` and CDF enabled at table creation.
 - **Renamed "table visibility" to "table privacy"** (breaking): the `set_table_visibility` macro is now `set_table_privacy`, `macros/dune_dbt_overrides/set_table_visibility.sql` is now `set_table_privacy.sql`, and `docs/dune-table-visibility.md` is now `docs/dune-table-privacy.md`. Dune's catalog already uses "visibility" for a separate, admin-only property that controls Data Explorer listing. If you call `set_table_visibility` outside the `dbt_project.yml` post-hook, rename the call. The `meta.dune.public` config and the underlying `dune.public` property are unchanged.
 - **Clarified view privacy**: the post-hook still skips views, but the docs no longer imply this leaves them exposed. A view's privacy cannot be changed after creation, and reading a view authorizes against each underlying table, so a view over private tables stays restricted.
 

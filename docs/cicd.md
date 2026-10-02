@@ -61,7 +61,7 @@ uv run dbt test --select modified_model
 
 ⚠️ **Note:** The schedule is **disabled by default** in the template. Teams must uncomment the cron line in the workflow file when ready to enable scheduled runs.
 
-The example cron runs daily at 06:00 UTC (`0 6 * * *`). Choose a cadence for your freshness requirements and credit budget. Datashares advance from the last completed changefeed watermark; dbt model lookbacks only control source reads.
+The example cron runs every 15 minutes (`*/15 * * * *`). A 10–30 minute cadence is a useful starting point. Datashares apply changes from the last completed changefeed watermark instead of resending a full snapshot each run. dbt model queries still consume credits; model lookbacks only control source reads.
 
 ### What It Does
 
@@ -128,7 +128,7 @@ Runs when:
 
 Runs when:
 
-- Scheduled cron - **disabled by default, must be uncommented**. The workflow ships with a daily example (`'0 6 * * *'`).
+- Scheduled cron - **disabled by default, must be uncommented**. The workflow ships with a 15-minute example (`'*/15 * * * *'`).
 - Manual trigger via GitHub Actions UI
 
 ## Troubleshooting CI Failures

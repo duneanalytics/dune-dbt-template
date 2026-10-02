@@ -2,7 +2,7 @@ name: dbt prod incremental
 
 on:
   # schedule:
-  #   - cron: '0 6 * * *'  # Daily at 06:00 UTC; adjust for freshness and credit budget.
+  #   - cron: '*/15 * * * *'  # Every 15 minutes; syncs consume changes since the last watermark.
   # NOTE: Schedule is disabled by default. Uncomment the cron above when ready.
   # Check the README.md to make sure you understand the credit costs associated with running dbt.
   workflow_dispatch:  # Allow manual triggers
