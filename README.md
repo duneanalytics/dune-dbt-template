@@ -53,7 +53,7 @@ See [`scripts/README.md`](scripts/README.md) for the complete example and prereq
 ## ⚠️ NOTE ⚠️
 
 Running dbt models on Dune from automated pipelines can quickly consume a lot of credits on Dune.
-We have disabled the CI workflows in this repo by default to prevent accidents.
+Workflows that run dbt models are disabled by default to prevent accidents. Offline unit tests remain enabled and do not consume Dune credits.
 Please check the **[Development Workflow](docs/development-workflow.md)** doc for more information.
 
 When you're ready to enable automated dbt runs on PRs, pushes to main, or a schedule, uncomment the triggers in the github workflow files:
@@ -195,15 +195,15 @@ select * from dune.dune__tmp_.dbt_template_view_model
 | Incremental (Merge)         | `dbt_template_merge_incremental_model.sql`         | Efficient updates via merge         |
 | Incremental (Delete+Insert) | `dbt_template_delete_insert_incremental_model.sql` | Efficient updates via delete+insert |
 | Incremental (Append)        | `dbt_template_append_incremental_model.sql`        | Append-only with deduplication      |
-| Incremental (Datashare)     | `dbt_template_datashare_incremental_model.sql`     | Merge model with datashare sync     |
+| Incremental (Datashare)     | `dbt_template_datashare_sync_model.sql`            | Merge model with changefeed sync   |
 
 All templates are in `models/templates/`.
 
 ## Datashares
 
-This template includes an opt-in datashare post-hook for `table` and `incremental` models. To enable it on a model, set `meta.datashare.enabled: true` and provide the sync window fields in the model config.
+This template uses datashares v2 with change data feed (CDF). For `table` and `incremental` models, set `meta.datashare_sync.enabled: true`, a non-empty model `unique_key`, and `properties.change_data_feed_enabled: "true"`. Dune syncs changes from the last completed watermark to your registered destination.
 
-See [docs/dune-datashares.md](docs/dune-datashares.md) for the full setup, `run-operation` examples, monitoring queries, and cleanup commands.
+See [docs/dune-datashares.md](docs/dune-datashares.md) for setup, `run-operation` examples, and cleanup commands.
 
 ## Table Privacy
 
@@ -245,7 +245,7 @@ Runs on every PR. Enforces branch is up-to-date with main, then runs and tests m
 
 ### Production Workflow (Scheduled)
 
-Runs on a schedule on main branch (disabled by default; daily cron is the safe default — see [docs/cicd.md](docs/cicd.md) for the daily-vs-hourly cost tradeoff with datashares). Uses state comparison to only full refresh modified models, then runs normal cadence runs.
+Runs on a schedule on main branch (disabled by default; choose a cadence for your freshness requirements and credit budget). Uses state comparison to only full refresh modified models, then runs normal cadence runs.
 
 **Target:** Sets `DBT_TARGET: prod` to write to production schemas (`{team}`)
 

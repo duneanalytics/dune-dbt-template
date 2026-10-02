@@ -61,10 +61,7 @@ uv run dbt test --select modified_model
 
 ⚠️ **Note:** The schedule is **disabled by default** in the template. Teams must uncomment the cron line in the workflow file when ready to enable scheduled runs.
 
-The workflow file offers two cron options:
-
-- **Daily** (`0 6 * * *`) — the safe default. Pairs with the included date-granularity datashare example.
-- **Hourly** (`0 * * * *`) — only safe if every datashare model uses a timestamp `time_column` with an hour-sized incremental window. A date `time_column` with hourly cadence re-reads the full day's partition from the destination on every MERGE, which is 24x the cross-region transfer cost on S3 Export targets. See [Cadence and sync windows](dune-datashares.md#cadence-and-sync-windows).
+The example cron runs daily at 06:00 UTC (`0 6 * * *`). Choose a cadence for your freshness requirements and credit budget. Datashares advance from the last completed changefeed watermark; dbt model lookbacks only control source reads.
 
 ### What It Does
 
@@ -131,7 +128,7 @@ Runs when:
 
 Runs when:
 
-- Scheduled cron - **disabled by default, must be uncommented**. The workflow ships with a daily option (`'0 6 * * *'`) and a commented hourly option; see the cost note above before choosing hourly.
+- Scheduled cron - **disabled by default, must be uncommented**. The workflow ships with a daily example (`'0 6 * * *'`).
 - Manual trigger via GitHub Actions UI
 
 ## Troubleshooting CI Failures
