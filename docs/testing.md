@@ -2,6 +2,16 @@
 
 Testing strategy and requirements for dbt models.
 
+## Offline Macro Tests
+
+Run the Python tests without a Dune API key or Trino connection:
+
+```bash
+uv run python -m unittest discover -s tests -v
+```
+
+`tests/test_datashare_sync.py` tests the changefeed post-hook and manual operation through dbt's macro runtime. `.github/workflows/offline_tests.yml` runs these tests and lints them on pull requests. It does not run dbt models or consume Dune credits.
+
 ## Schema Configuration (Required)
 
 **All models highly recommended to be declared in a `schema.yml` file.**

@@ -5,10 +5,11 @@ All notable changes to this template will be documented in this file.
 ## [Unreleased]
 
 ### Added
-- **DataShare sync**: a `meta.datashare_sync` block syncs a model without defining a time window, with an optional `partitioning` key to partition the share on a raw date/timestamp column. Dune advances the share from the last completed sync, so there are no time keys, and it delivers to your registered destination without you naming one. A model cannot carry both `meta.datashare` and `meta.datashare_sync`. Remove one of these shares with `delete_datashare_sync`, as `delete_datashare` removes a `meta.datashare` one. See `docs/dune-datashares.md`.
+- **DataShare sync**: `meta.datashare_sync` enables changefeed replication to your registered destination, with optional `partitioning` on a raw date/timestamp column. Remove a share with `delete_datashare_sync`. See `docs/dune-datashares.md`.
 - **DataShare sync change data feed**: `meta.datashare_sync` models must set `properties.change_data_feed_enabled = true` when the table is created. The post-hook fails compilation if it is missing. See the example model and `docs/dune-datashares.md`.
 
 ### Changed
+- **Changefeed datashares**: use the CDF post-hook in `datashare_sync_post_hook.sql` and `dbt_template_datashare_sync_model.sql`. Syncs require a non-empty model `unique_key` and CDF enabled at table creation.
 - **Renamed "table visibility" to "table privacy"** (breaking): the `set_table_visibility` macro is now `set_table_privacy`, `macros/dune_dbt_overrides/set_table_visibility.sql` is now `set_table_privacy.sql`, and `docs/dune-table-visibility.md` is now `docs/dune-table-privacy.md`. Dune's catalog already uses "visibility" for a separate, admin-only property that controls Data Explorer listing. If you call `set_table_visibility` outside the `dbt_project.yml` post-hook, rename the call. The `meta.dune.public` config and the underlying `dune.public` property are unchanged.
 - **Clarified view privacy**: the post-hook still skips views, but the docs no longer imply this leaves them exposed. A view's privacy cannot be changed after creation, and reading a view authorizes against each underlying table, so a view over private tables stays restricted.
 
@@ -19,7 +20,7 @@ All notable changes to this template will be documented in this file.
 ## [v1.4.0] - 2026-04-02
 
 ### Added
-- **Datashare support**: Macro and prod-only post-hook to run `ALTER TABLE ... EXECUTE datashare(...)`, opt-in example model, and setup/monitoring documentation (#61)
+- **Datashare support**: Opt-in replication with a prod-only post-hook and setup documentation (#61)
 - **Table visibility control**: `set_table_visibility` post-hook and `meta.dune.public` (sugar over `extra_properties`) for public vs private tables (#57)
 - **Table visibility documentation**: `docs/dune-table-visibility.md` covering folder-level config, prod-only behavior, combining with datashare, and raw SQL fallbacks (#60)
 
