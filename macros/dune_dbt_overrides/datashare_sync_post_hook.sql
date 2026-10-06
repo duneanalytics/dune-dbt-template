@@ -81,13 +81,14 @@ ALTER TABLE {{ catalog_name }}.{{ schema_name }}.{{ table_name }} EXECUTE sync_d
     {%- if target.name != 'prod' -%}
         {{ return('') }}
     {%- endif -%}
+    {#- Dune handles initial bootstrap and CDF recovery; only force an explicit dbt refresh. -#}
     {{ return(_datashare_sync_sql(
         schema_name=this.schema,
         table_name=this.identifier,
         meta=model.config.get('meta', {}),
         materialized=model.config.materialized,
         unique_key=model.config.get('unique_key'),
-        full_refresh=(not is_incremental()),
+        full_refresh=should_full_refresh(),
         properties=model.config.get('properties')
     ) or '') }}
 {%- endmacro -%}
@@ -131,7 +132,7 @@ ALTER TABLE {{ catalog_name }}.{{ schema_name }}.{{ table_name }} EXECUTE sync_d
         meta=node_config.get('meta', {}),
         materialized=materialized,
         unique_key=node_config.get('unique_key'),
-        full_refresh=(materialized == 'table' or full_refresh is sameas true),
+        full_refresh=(full_refresh is sameas true),
         catalog_name=node.database or target.database,
         properties=node_config.get('properties')
     ) -%}

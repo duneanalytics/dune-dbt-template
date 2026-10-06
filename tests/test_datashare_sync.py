@@ -9,6 +9,7 @@ from unittest.mock import Mock
 from dbt.clients.jinja import MacroGenerator
 from dbt.context.exceptions_jinja import raise_compiler_error
 from dbt.contracts.graph.nodes import Macro
+from dbt.include.global_project import PACKAGE_PATH as DBT_GLOBAL_PROJECT_PATH
 from dbt_common.exceptions import CompilationError
 from dbt_common.exceptions.macros import MacroReturn
 
@@ -52,20 +53,26 @@ class TestDatashareSync(unittest.TestCase):
                 )
             ),
             "is_incremental": Mock(spec=[], return_value=True),
+            "config": SimpleNamespace(get=self.config.get),
+            "flags": SimpleNamespace(FULL_REFRESH=False),
             "graph": SimpleNamespace(nodes={self.node.unique_id: self.node}),
         }
-        source = (ROOT / MACRO_PATH).read_text()
-        for name in re.findall(r"{%\s*macro\s+(\w+)\(", source):
-            macro = Macro(
-                name=name,
-                resource_type="macro",
-                package_name="dbt_template",
-                path=str(MACRO_PATH),
-                original_file_path=str(MACRO_PATH),
-                unique_id=f"macro.dbt_template.{name}",
-                macro_sql=source,
-            )
-            self.context[name] = MacroGenerator(macro, self.context)
+        for path in (
+            ROOT / MACRO_PATH,
+            Path(DBT_GLOBAL_PROJECT_PATH) / "macros/materializations/configs.sql",
+        ):
+            source = path.read_text()
+            for name in re.findall(r"{%\s*macro\s+(\w+)\(", source):
+                macro = Macro(
+                    name=name,
+                    resource_type="macro",
+                    package_name="dbt_template",
+                    path=str(path),
+                    original_file_path=str(path),
+                    unique_id=f"macro.dbt_template.{name}",
+                    macro_sql=source,
+                )
+                self.context[name] = MacroGenerator(macro, self.context)
 
     def hook(self):
         return self.context["datashare_trigger_sync"]()
@@ -81,14 +88,33 @@ class TestDatashareSync(unittest.TestCase):
         )
         self.context["run_query"].assert_not_called()
 
-    def test_hook_full_refresh_for_initial_or_recreated_table(self):
+    def test_first_run_hook_does_not_force_full_refresh(self):
         self.context["is_incremental"].return_value = False
-        self.assertIn("full_refresh => true", self.hook())
+        self.assertIn("full_refresh => false", self.hook())
+        self.context["is_incremental"].assert_not_called()
 
-    def test_table_materialization_hook(self):
+    def test_table_materialization_hook_does_not_force_full_refresh(self):
         self.context["model"].config.materialized = "table"
         self.context["is_incremental"].return_value = False
-        self.assertIn("full_refresh => true", self.hook())
+        self.assertIn("full_refresh => false", self.hook())
+        self.context["is_incremental"].assert_not_called()
+
+    def test_hook_propagates_dbt_full_refresh_for_both_materializations(self):
+        self.context["flags"].FULL_REFRESH = True
+        for materialized in ("incremental", "table"):
+            with self.subTest(materialized=materialized):
+                self.context["model"].config.materialized = materialized
+                self.assertIn("full_refresh => true", self.hook())
+        self.context["run_query"].assert_not_called()
+
+    def test_hook_respects_model_full_refresh_config_over_cli_flag(self):
+        for configured, requested in ((True, False), (False, True)):
+            with self.subTest(configured=configured, requested=requested):
+                self.config["full_refresh"] = configured
+                self.context["flags"].FULL_REFRESH = requested
+                expected = "true" if configured else "false"
+                self.assertIn(f"full_refresh => {expected}", self.hook())
+        self.context["run_query"].assert_not_called()
 
     def test_hook_skips_dev_views_and_disabled_or_absent_metadata(self):
         for field, value in (
@@ -160,19 +186,25 @@ class TestDatashareSync(unittest.TestCase):
             self.operation()
         self.context["run_query"].assert_not_called()
 
-    def test_manual_sync_executes_exactly_the_generated_statement(self):
-        sql = self.operation()
-        self.assertIn("full_refresh => false", sql)
-        self.context["run_query"].assert_called_once_with(sql)
-
-    def test_manual_full_refresh_and_table_materialization(self):
-        for materialized, requested in (("incremental", True), ("table", False)):
+    def test_manual_sync_does_not_force_full_refresh_for_both_materializations(self):
+        for materialized in ("incremental", "table"):
             with self.subTest(materialized=materialized):
                 self.config["materialized"] = materialized
-                self.assertIn(
-                    "full_refresh => true",
-                    self.operation(full_refresh=requested, dry_run=True),
-                )
+                self.context["run_query"].reset_mock()
+                sql = self.operation()
+                self.assertIn("full_refresh => false", sql)
+                self.context["run_query"].assert_called_once_with(sql)
+
+    def test_manual_full_refresh_is_explicit_for_both_materializations(self):
+        for materialized in ("incremental", "table"):
+            for requested in (False, True):
+                with self.subTest(materialized=materialized, requested=requested):
+                    self.config["materialized"] = materialized
+                    expected = "true" if requested else "false"
+                    self.assertIn(
+                        f"full_refresh => {expected}",
+                        self.operation(full_refresh=requested, dry_run=True),
+                    )
         self.context["run_query"].assert_not_called()
 
     def test_manual_sync_guards_dev_execution_but_allows_preview_and_override(self):

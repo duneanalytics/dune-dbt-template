@@ -78,15 +78,17 @@ The example schedule runs every 15 minutes and remains disabled until you enable
 
 ## Full Refresh
 
-A full refresh copies the current source snapshot again instead of advancing the watermark.
+A forced full refresh copies the current source snapshot again rather than applying changes since the last watermark. Use it as a last-resort manual override.
+
+The `full_refresh` argument to `sync_datashare` is optional and defaults to `false`. Dune handles initial bootstrap and necessary recovery automatically; `false` does not guarantee an incremental sync.
 
 | Context | `full_refresh` |
 | --- | --- |
-| Normal incremental post-hook | `false` |
-| First incremental run or dbt `--full-refresh` | `true` |
-| Table materialization post-hook | `true` |
-| Incremental `run-operation` | `false` unless explicitly requested |
-| Table `run-operation` | `true` |
+| Post-hook without a dbt full-refresh request, including first runs and `table` models | `false` |
+| dbt `--full-refresh` | `true` |
+| Manual `run-operation`, for either materialization | `false` unless explicitly requested |
+
+The post-hook follows dbt's effective full-refresh setting. An explicit model `full_refresh` config takes precedence over the CLI flag.
 
 ## Manual Syncs
 
