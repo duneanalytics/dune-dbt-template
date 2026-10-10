@@ -79,3 +79,21 @@ models:
         description: "The date used for datashare sync windows"
       - name: total_tx_per_block
         description: "The total number of transactions per block"
+  - name: dbt_template_datashare_settled_append_model
+    description: "A starter insert-only dbt incremental model that syncs settled days of tokens.transfers through DataShare, for Databricks delivery"
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - blockchain
+              - block_date
+              - unique_key
+    columns:
+      - name: blockchain
+        description: "The chain the transfer happened on"
+      - name: block_date
+        description: "The date of the block, used to partition the share"
+      - name: unique_key
+        description: "Spellbook's per-chain transfer identifier, unique within a block_date"
+      - name: amount_raw
+        description: "The transferred amount before applying token decimals"
