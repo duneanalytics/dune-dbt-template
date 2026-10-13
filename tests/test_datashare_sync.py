@@ -136,6 +136,7 @@ class TestDatashareSync(unittest.TestCase):
             None,
             {"datashare_sync": {"enabled": False}},
             {"datashare_sync": {"enabled": "true"}},
+            {"datashare": {"enabled": False}},
         ):
             with self.subTest(meta=meta):
                 self.config["meta"] = meta
@@ -149,6 +150,20 @@ class TestDatashareSync(unittest.TestCase):
                 for call in (self.hook, self.operation):
                     with self.assertRaisesRegex(
                         CompilationError, "change_data_feed_enabled"
+                    ):
+                        call()
+        self.context["run_query"].assert_not_called()
+
+    def test_enabled_legacy_datashare_metadata_fails(self):
+        for meta in (
+            {"datashare": {"enabled": True}},
+            {**self.config["meta"], "datashare": {"enabled": True}},
+        ):
+            with self.subTest(meta=meta):
+                self.config["meta"] = meta
+                for call in (self.hook, self.operation):
+                    with self.assertRaisesRegex(
+                        CompilationError, "meta.datashare_sync"
                     ):
                         call()
         self.context["run_query"].assert_not_called()

@@ -54,6 +54,14 @@
     , properties=None
 ) %}
     {%- set model_ref = schema_name ~ '.' ~ table_name -%}
+    {%- set legacy_datashare = meta.get('datashare') if meta is mapping else none -%}
+    {%- if legacy_datashare is mapping and legacy_datashare.get('enabled') is sameas true -%}
+        {{ exceptions.raise_compiler_error(
+            "Model " ~ model_ref ~ " uses meta.datashare, which is no longer supported. "
+            ~ "Move it to meta.datashare_sync and set properties.change_data_feed_enabled = true. "
+            ~ "See docs/dune-datashares.md."
+        ) }}
+    {%- endif -%}
     {%- set datashare_sync = meta.get('datashare_sync') if meta is mapping else none -%}
     {%- if datashare_sync is not mapping or datashare_sync.get('enabled') is not sameas true -%}
         {{ return(none) }}
