@@ -76,6 +76,8 @@ The hook omits `partitioning` when it is not configured. It does not query the d
 
 The example schedule runs every 15 minutes and remains disabled until you enable it. A 10–30 minute cadence is a useful starting point. Incremental syncs apply changes since the last completed watermark; frequent runs do not resend a full snapshot. dbt model queries still consume credits.
 
+This schedule controls dbt builds, not replication. Registering a share also creates a separate Dune replication schedule, every five minutes by default, and later registrations keep an existing schedule. Disabling the workflow or `meta.datashare_sync.enabled` does not stop a registered share. To stop replication, [remove the share](#remove-a-share).
+
 ## Full Refresh
 
 A forced full refresh copies the current source snapshot again rather than applying changes since the last watermark. Use it as a last-resort manual override.
@@ -84,11 +86,12 @@ The `full_refresh` argument to `sync_datashare` is optional and defaults to `fal
 
 | Context | `full_refresh` |
 | --- | --- |
-| Post-hook without a dbt full-refresh request, including first runs and `table` models | `false` |
+| Post-hook on an `incremental` model without a dbt full-refresh request, including first runs | `false` |
+| Post-hook on a `table` model | `true` |
 | dbt `--full-refresh` | `true` |
 | Manual `run-operation`, for either materialization | `false` unless explicitly requested |
 
-The post-hook follows dbt's effective full-refresh setting. An explicit model `full_refresh` config takes precedence over the CLI flag.
+A `table` build recreates the source under the same name with a new change history, which Dune cannot tell apart from an unchanged table. The post-hook therefore refreshes the destination after every `table` build. For `incremental` models it follows dbt's effective full-refresh setting, and an explicit model `full_refresh` config takes precedence over the CLI flag.
 
 ## Manual Syncs
 
@@ -125,7 +128,15 @@ An explicit `allow_prod_only: false` permits non-prod execution. Avoid it for ep
 ALTER TABLE dune.<schema>.<table> EXECUTE delete_datashare_sync
 ```
 
-This stops replication and revokes destination access. It does not drop the dbt source table. Disable `meta.datashare_sync.enabled` to prevent the next prod run from registering the share again.
+This stops replication and revokes destination access for changefeed shares only. It does not drop the dbt source table. Disable `meta.datashare_sync.enabled` to prevent the next prod run from registering the share again.
+
+### Migrate from `meta.datashare`
+
+Models with `meta.datashare.enabled: true` fail compilation. Moving a model to `meta.datashare_sync` does not remove its old share, and both can stay active together. After the first successful run with `meta.datashare_sync`, remove the old share:
+
+```sql
+ALTER TABLE dune.<schema>.<table> EXECUTE delete_datashare
+```
 
 ## Further Reading
 

@@ -93,11 +93,11 @@ class TestDatashareSync(unittest.TestCase):
         self.assertIn("full_refresh => false", self.hook())
         self.context["is_incremental"].assert_not_called()
 
-    def test_table_materialization_hook_does_not_force_full_refresh(self):
+    def test_every_table_build_forces_full_refresh_even_when_config_disables_it(self):
         self.context["model"].config.materialized = "table"
-        self.context["is_incremental"].return_value = False
-        self.assertIn("full_refresh => false", self.hook())
-        self.context["is_incremental"].assert_not_called()
+        self.config["full_refresh"] = False
+        self.assertIn("full_refresh => true", self.hook())
+        self.context["run_query"].assert_not_called()
 
     def test_hook_propagates_dbt_full_refresh_for_both_materializations(self):
         self.context["flags"].FULL_REFRESH = True

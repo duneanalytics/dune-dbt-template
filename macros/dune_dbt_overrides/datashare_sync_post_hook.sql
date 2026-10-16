@@ -59,7 +59,8 @@
         {{ exceptions.raise_compiler_error(
             "Model " ~ model_ref ~ " uses meta.datashare, which is no longer supported. "
             ~ "Move it to meta.datashare_sync and set properties.change_data_feed_enabled = true. "
-            ~ "See docs/dune-datashares.md."
+            ~ "Then remove the old share with EXECUTE delete_datashare. "
+            ~ "See \"Migrate from meta.datashare\" in docs/dune-datashares.md."
         ) }}
     {%- endif -%}
     {%- set datashare_sync = meta.get('datashare_sync') if meta is mapping else none -%}
@@ -89,14 +90,17 @@ ALTER TABLE {{ catalog_name }}.{{ schema_name }}.{{ table_name }} EXECUTE sync_d
     {%- if target.name != 'prod' -%}
         {{ return('') }}
     {%- endif -%}
-    {#- Dune handles initial bootstrap and CDF recovery; only force an explicit dbt refresh. -#}
+    {#- A table build recreates the source under the same name with a fresh Delta log, which Dune
+        cannot tell apart from an unchanged table, so it always needs a destination refresh.
+        Incremental models rely on Dune's bootstrap and CDF recovery unless dbt asks for one. -#}
+    {%- set materialized = model.config.materialized -%}
     {{ return(_datashare_sync_sql(
         schema_name=this.schema,
         table_name=this.identifier,
         meta=model.config.get('meta', {}),
-        materialized=model.config.materialized,
+        materialized=materialized,
         unique_key=model.config.get('unique_key'),
-        full_refresh=should_full_refresh(),
+        full_refresh=materialized == 'table' or should_full_refresh(),
         properties=model.config.get('properties')
     ) or '') }}
 {%- endmacro -%}
