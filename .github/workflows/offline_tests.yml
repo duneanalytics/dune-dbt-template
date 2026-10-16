@@ -1,0 +1,28 @@
+name: Offline tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: Lint changefeed tests
+        run: uvx ruff==0.16.10 check
+      - name: Check test formatting
+        run: uvx ruff==0.16.10 format --check
+      - name: Run offline tests
+        run: uv run python -m unittest discover -s tests -v
