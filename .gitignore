@@ -9,9 +9,6 @@ venv/
 ENV/
 env/
 
-# uv
-.python-version
-
 # .user.yml
 .user.yml
 
