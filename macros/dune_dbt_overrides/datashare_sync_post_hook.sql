@@ -18,7 +18,7 @@
 {%- endmacro -%}
 
 {% macro _datashare_sync_validate_config(model_ref, datashare_sync, properties) %}
-    {%- set supported_keys = ['enabled', 'partitioning'] -%}
+    {%- set supported_keys = ['enabled', 'partitioning', 'target_type', 'target_region'] -%}
     {%- set unsupported_keys = [] -%}
     {%- for key in datashare_sync.keys() -%}
         {%- if key not in supported_keys -%}
@@ -41,6 +41,16 @@
             ~ "changes from the table. See docs/dune-datashares.md."
         ) }}
     {%- endif -%}
+    {%- if _datashare_is_set(datashare_sync.get('target_type')) != _datashare_is_set(datashare_sync.get('target_region')) -%}
+        {{ exceptions.raise_compiler_error(
+            "Model " ~ model_ref ~ " must set both meta.datashare_sync.target_type "
+            ~ "and target_region, or neither."
+        ) }}
+    {%- endif -%}
+{%- endmacro -%}
+
+{% macro _datashare_is_set(value) %}
+    {{ return(value is not none and value | string | trim != '') }}
 {%- endmacro -%}
 
 {% macro _datashare_sync_sql(
@@ -73,12 +83,17 @@
     {{ _datashare_sync_validate_config(model_ref, datashare_sync, properties) }}
     {%- set columns_sql = _datashare_unique_key_columns_sql(unique_key, model_ref) -%}
     {%- set partitioning = datashare_sync.get('partitioning') -%}
+    {%- set target_type = datashare_sync.get('target_type') -%}
+    {%- set target_region = datashare_sync.get('target_region') -%}
     {%- set sql -%}
 ALTER TABLE {{ catalog_name }}.{{ schema_name }}.{{ table_name }} EXECUTE sync_datashare(
     unique_key_columns => {{ columns_sql }},
     full_refresh => {{ 'true' if full_refresh else 'false' }}
 {%- if partitioning is not none and partitioning | string | trim != '' -%}
     , partitioning => {{ _datashare_sql_string(partitioning) }}
+{%- endif -%}
+{%- if _datashare_is_set(target_type) -%}
+    , target_type => {{ _datashare_sql_string(target_type | string | trim) }}, target_region => {{ _datashare_sql_string(target_region | string | trim) }}
 {%- endif -%}
 )
     {%- endset -%}

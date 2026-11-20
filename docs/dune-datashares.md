@@ -1,6 +1,6 @@
 # Dune Datashares
 
-This template uses datashares with change data feed (CDF). Dune copies the source snapshot on the first sync, then applies changes from the last completed watermark. Dune resolves your team's registered destination.
+This template uses datashares with change data feed (CDF). Dune copies the source snapshot on the first sync, then applies changes from the last completed watermark. Dune delivers to your team's default destination unless the model [names one](#optional-target).
 
 ## Prerequisites
 
@@ -60,6 +60,18 @@ Set `meta.datashare_sync.partitioning` to a raw date/timestamp column name. Do n
 
 Changing an existing share's partitioning requires a full refresh. Dune rejects the change while a bootstrap is in flight.
 
+### Optional Target
+
+Set `meta.datashare_sync.target_type` and `target_region` together to deliver to a specific destination instead of your team's default. Your team must have that destination registered with Dune.
+
+| `target_type` | `target_region` |
+| --- | --- |
+| `snowflake` | `eu`, `aws_us_east_1`, `aws_us_west_2` |
+| `databricks` | `eu` |
+| `s3` | An AWS region, e.g. `eu-west-1` |
+
+Setting only one of them fails compilation.
+
 ## Generated SQL
 
 ```sql
@@ -70,7 +82,7 @@ ALTER TABLE dune.<schema>.<table> EXECUTE sync_datashare(
 )
 ```
 
-The hook omits `partitioning` when it is not configured. It does not query the destination before generating SQL.
+The hook omits `partitioning`, `target_type`, and `target_region` when they are not configured. It does not query the destination before generating SQL.
 
 ## Run Cadence
 
@@ -128,7 +140,18 @@ An explicit `allow_prod_only: false` permits non-prod execution. Avoid it for ep
 ALTER TABLE dune.<schema>.<table> EXECUTE delete_datashare_sync
 ```
 
-This stops replication and revokes destination access for changefeed shares only. It does not drop the dbt source table. Disable `meta.datashare_sync.enabled` to prevent the next prod run from registering the share again.
+This stops replication and revokes destination access for changefeed shares only. It does not drop the dbt source table.
+
+If the model sets a target, pass the same one to remove only that destination's share:
+
+```sql
+ALTER TABLE dune.<schema>.<table> EXECUTE delete_datashare_sync(
+    target_type => 'snowflake',
+    target_region => 'eu'
+)
+``` 
+
+Disable `meta.datashare_sync.enabled` to prevent the next prod run from registering the share again.
 
 ### Migrate from `meta.datashare`
 

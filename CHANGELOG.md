@@ -5,6 +5,7 @@ All notable changes to this template will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **DataShare sync target**: optional `meta.datashare_sync.target_type` and `target_region` deliver to a specific destination instead of the team's default. Set both or neither. See "Optional Target" in `docs/dune-datashares.md`.
 - **DataShare sync**: `meta.datashare_sync` enables changefeed replication to your registered destination, with optional `partitioning` on a raw date/timestamp column. Remove a share with `delete_datashare_sync`. See `docs/dune-datashares.md`.
 - **DataShare sync change data feed**: `meta.datashare_sync` models must set `properties.change_data_feed_enabled = true` when the table is created. The post-hook fails compilation if it is missing. See the example model and `docs/dune-datashares.md`.
 
