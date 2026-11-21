@@ -15,6 +15,7 @@ dbt = "dbt.cli.main:cli"
 [tool.uv]
 package = false
 exclude-newer = "3 days"
+no-build = true
 
 [dependency-groups]
 dev = []
