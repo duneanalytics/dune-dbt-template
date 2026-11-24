@@ -195,6 +195,48 @@ class TestDatashareSync(unittest.TestCase):
                 self.config["meta"]["datashare_sync"]["partitioning"] = value
                 self.assertNotIn("partitioning =>", self.hook())
 
+    def test_target_is_passed_through_both_entrypoints(self):
+        self.config["meta"]["datashare_sync"].update(
+            target_type="snowflake", target_region=" aws_us_east_1 "
+        )
+        for call in (self.hook, lambda: self.operation(dry_run=True)):
+            with self.subTest(call=call):
+                self.assertIn(
+                    "target_type => 'snowflake', target_region => 'aws_us_east_1')",
+                    " ".join(call().split()),
+                )
+
+    def test_empty_target_is_omitted(self):
+        for value in (None, "", " "):
+            with self.subTest(value=value):
+                self.config["meta"]["datashare_sync"].update(
+                    target_type=value, target_region=value
+                )
+                self.assertNotIn("target_", self.hook())
+
+    def test_target_requires_type_and_region_together(self):
+        for target in (
+            {"target_type": "snowflake"},
+            {"target_region": "eu"},
+            {"target_type": "snowflake", "target_region": " "},
+        ):
+            with self.subTest(target=target):
+                self.config["meta"]["datashare_sync"] = {"enabled": True, **target}
+                for call in (self.hook, self.operation):
+                    with self.assertRaisesRegex(
+                        CompilationError, "both.*target_type.*target_region"
+                    ):
+                        call()
+        self.context["run_query"].assert_not_called()
+
+    def test_target_escapes_sql_strings(self):
+        self.config["meta"]["datashare_sync"].update(
+            target_type="snow'flake", target_region="e'u"
+        )
+        sql = self.hook()
+        self.assertIn("target_type => 'snow''flake'", sql)
+        self.assertIn("target_region => 'e''u'", sql)
+
     def test_unknown_sync_keys_fail(self):
         self.config["meta"]["datashare_sync"]["unexpected"] = True
         with self.assertRaisesRegex(CompilationError, "unsupported.*unexpected"):
