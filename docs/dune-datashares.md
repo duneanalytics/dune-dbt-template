@@ -72,6 +72,8 @@ Set `meta.datashare_sync.target_type` and `target_region` together to deliver to
 
 Setting only one of them fails compilation.
 
+The target applies when the table is first shared. Once it is shared, a run naming a destination the table is not shared to fails with an "already shared" error and changes nothing. To move the table to a new target, remove its current share (see [Remove a Share](#remove-a-share)) and let the next prod run share it again. To deliver to another destination as well, contact Dune.
+
 ## Generated SQL
 
 ```sql
@@ -142,7 +144,7 @@ ALTER TABLE dune.<schema>.<table> EXECUTE delete_datashare_sync
 
 This stops replication and revokes destination access for changefeed shares only. It does not drop the dbt source table.
 
-Without a target, the statement removes the table's share only when the table has a single destination. If it has shares to several destinations, for example after the model's target changed, the statement fails and lists them. Name the one to remove:
+Without a target, the statement removes the table's share only when the table has a single destination. If it has shares to several destinations, for example after Dune added one, the statement fails and lists them. Name the one to remove:
 
 ```sql
 ALTER TABLE dune.<schema>.<table> EXECUTE delete_datashare_sync(
