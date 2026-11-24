@@ -142,14 +142,16 @@ ALTER TABLE dune.<schema>.<table> EXECUTE delete_datashare_sync
 
 This stops replication and revokes destination access for changefeed shares only. It does not drop the dbt source table.
 
-If the model sets a target, pass the same one to remove only that destination's share:
+Without a target, the statement removes the table's share only when the table has a single destination. If it has shares to several destinations, for example after the model's target changed, the statement fails and lists them. Name the one to remove:
 
 ```sql
 ALTER TABLE dune.<schema>.<table> EXECUTE delete_datashare_sync(
     target_type => 'snowflake',
     target_region => 'eu'
 )
-``` 
+```
+
+A delete that names a target removes only that destination's share, and fails if the table has no share there.
 
 Disable `meta.datashare_sync.enabled` to prevent the next prod run from registering the share again.
 
